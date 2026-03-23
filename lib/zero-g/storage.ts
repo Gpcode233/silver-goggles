@@ -19,17 +19,17 @@ const MOCK_STORAGE_DIR = resolveDataPath("mock-storage");
 const DOWNLOAD_DIR = resolveDataPath("downloads");
 
 let storageSdkPromise: Promise<{
-  Indexer: typeof import("@0glabs/0g-ts-sdk").Indexer;
-  MemData: typeof import("@0glabs/0g-ts-sdk").MemData;
+  Indexer: typeof import("@0gfoundation/0g-ts-sdk").Indexer;
+  MemData: typeof import("@0gfoundation/0g-ts-sdk").MemData;
 }> | null = null;
 let storageSignerPromise: Promise<{
-  indexer: import("@0glabs/0g-ts-sdk").Indexer;
+  indexer: import("@0gfoundation/0g-ts-sdk").Indexer;
   signer: import("ethers").Wallet;
 }> | null = null;
 
 async function loadStorageSdk() {
   if (!storageSdkPromise) {
-    storageSdkPromise = import("@0glabs/0g-ts-sdk").then(({ Indexer, MemData }) => ({
+    storageSdkPromise = import("@0gfoundation/0g-ts-sdk").then(({ Indexer, MemData }) => ({
       Indexer,
       MemData,
     }));
@@ -122,11 +122,31 @@ async function uploadBytesToRealStorage(data: Uint8Array): Promise<UploadResult>
     throw new Error(`Merkle tree error: ${treeError.message}`);
   }
 
-  const [receipt, error] = await indexer.upload(
-    payload,
-    process.env.ZERO_G_EVM_RPC!,
-    signer as never,
-  );
+  let receipt: Awaited<ReturnType<typeof indexer.upload>>[0] | null = null;
+  let error: Awaited<ReturnType<typeof indexer.upload>>[1] | null = null;
+
+  try {
+    [receipt, error] = await indexer.upload(
+      payload,
+      process.env.ZERO_G_EVM_RPC!,
+      signer as never,
+    );
+  } catch (uploadError) {
+    const message = uploadError instanceof Error ? uploadError.message : String(uploadError);
+    const looksLikeRevert =
+      message.includes("execution reverted") ||
+      message.includes("CALL_EXCEPTION") ||
+      message.includes("estimateGas");
+
+    if (looksLikeRevert) {
+      throw new Error(
+        `0G Storage transaction reverted for server signer ${signer.address}. ` +
+          "Fund this wallet on 0G testnet and verify ZERO_G_EVM_RPC / ZERO_G_STORAGE_INDEXER_RPC.",
+      );
+    }
+
+    throw new Error(`0G storage upload failed: ${message}`);
+  }
 
   if (!receipt || error) {
     throw new Error(error?.message ?? "0G storage upload failed");

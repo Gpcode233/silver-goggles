@@ -17,7 +17,7 @@ Ajently is an "App Store for AI agents" where creators can publish agents and us
 - Tailwind CSS
 - SQLite (via `sql.js`, persisted at `data/Ajently.sqlite`)
 - 0G integrations:
-  - Storage: `@0glabs/0g-ts-sdk`
+  - Storage: `@0gfoundation/0g-ts-sdk`
   - Compute: `@0glabs/0g-serving-broker`
 
 ## Quick Start

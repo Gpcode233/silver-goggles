@@ -28,13 +28,15 @@ export default async function HomePage({
   const search = params.search ?? "";
   const category = params.category ?? "";
 
-  try {
-    await publishAgentsMissingStorageProof();
-  } catch (error) {
-    console.error(
-      "Failed to sync agents to 0G Storage:",
-      error instanceof Error ? error.message : error,
-    );
+  if (process.env.ZERO_G_AUTO_SYNC_STORAGE_ON_HOME === "true") {
+    try {
+      await publishAgentsMissingStorageProof();
+    } catch (error) {
+      console.error(
+        "Failed to sync agents to 0G Storage:",
+        error instanceof Error ? error.message : error,
+      );
+    }
   }
 
   const agents = await listAgents({ search, category, includeDrafts: false });

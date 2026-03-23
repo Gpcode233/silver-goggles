@@ -110,33 +110,47 @@ function hasStorageProof(agent: AgentRecord): boolean {
   return Boolean(agent.storageHash && agent.manifestUri && agent.manifestTxHash);
 }
 
+let syncPromise: Promise<{
+  checked: number;
+  published: number;
+  failed: Array<{ agentId: number; error: string }>;
+}> | null = null;
+
 export async function publishAgentsMissingStorageProof(): Promise<{
   checked: number;
   published: number;
   failed: Array<{ agentId: number; error: string }>;
 }> {
-  const agents = await listAgents({ includeDrafts: true });
-  const failed: Array<{ agentId: number; error: string }> = [];
-  let published = 0;
+  if (!syncPromise) {
+    syncPromise = (async () => {
+      const agents = await listAgents({ includeDrafts: true });
+      const failed: Array<{ agentId: number; error: string }> = [];
+      let published = 0;
 
-  for (const agent of agents) {
-    if (hasStorageProof(agent)) {
-      continue;
-    }
-    try {
-      await publishAgentWithOptions(agent.id, { requireRealStorageProof: true });
-      published += 1;
-    } catch (error) {
-      failed.push({
-        agentId: agent.id,
-        error: error instanceof Error ? error.message : "Failed to publish agent to 0G Storage",
-      });
-    }
+      for (const agent of agents) {
+        if (hasStorageProof(agent)) {
+          continue;
+        }
+        try {
+          await publishAgentWithOptions(agent.id, { requireRealStorageProof: true });
+          published += 1;
+        } catch (error) {
+          failed.push({
+            agentId: agent.id,
+            error: error instanceof Error ? error.message : "Failed to publish agent to 0G Storage",
+          });
+        }
+      }
+
+      return {
+        checked: agents.length,
+        published,
+        failed,
+      };
+    })().finally(() => {
+      syncPromise = null;
+    });
   }
 
-  return {
-    checked: agents.length,
-    published,
-    failed,
-  };
+  return syncPromise;
 }

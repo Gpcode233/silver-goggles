@@ -15,6 +15,23 @@ function sanitizeFilename(name: string): string {
   return name.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
+function toPublishErrorMessage(error: unknown): string {
+  const message = error instanceof Error ? error.message : "Failed to publish agent to real 0G Storage";
+  const looksLikeRevert =
+    message.includes("execution reverted") ||
+    message.includes("CALL_EXCEPTION") ||
+    message.includes("estimateGas");
+
+  if (!looksLikeRevert) {
+    return message;
+  }
+
+  return (
+    "0G Storage transaction reverted for the server signer wallet. " +
+    "Fund the ZERO_G_PRIVATE_KEY address on 0G testnet and verify ZERO_G_EVM_RPC / ZERO_G_STORAGE_INDEXER_RPC."
+  );
+}
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
 
@@ -116,10 +133,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Failed to publish agent to real 0G Storage",
+        error: toPublishErrorMessage(error),
         published: false,
         agentId: agent.id,
       },

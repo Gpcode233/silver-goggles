@@ -2,9 +2,6 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { Indexer, MemData } from "@0glabs/0g-ts-sdk";
-import { ethers } from "ethers";
-
 import { resolveDataPath } from "@/lib/data-dir";
 
 export type UploadResult = {
@@ -16,6 +13,25 @@ export type UploadResult = {
 
 const MOCK_STORAGE_DIR = resolveDataPath("mock-storage");
 const DOWNLOAD_DIR = resolveDataPath("downloads");
+
+let storageSdkPromise: Promise<{
+  Indexer: typeof import("@0glabs/0g-ts-sdk").Indexer;
+  MemData: typeof import("@0glabs/0g-ts-sdk").MemData;
+}> | null = null;
+let storageSignerPromise: Promise<{
+  indexer: import("@0glabs/0g-ts-sdk").Indexer;
+  signer: import("ethers").Wallet;
+}> | null = null;
+
+async function loadStorageSdk() {
+  if (!storageSdkPromise) {
+    storageSdkPromise = import("@0glabs/0g-ts-sdk").then(({ Indexer, MemData }) => ({
+      Indexer,
+      MemData,
+    }));
+  }
+  return storageSdkPromise;
+}
 
 function getRootHashFromUri(uri: string): string {
   const normalized = uri.trim();
@@ -35,10 +51,19 @@ function realStorageEnabled(): boolean {
 }
 
 async function getStorageClients() {
-  const indexer = new Indexer(process.env.ZERO_G_STORAGE_INDEXER_RPC!);
-  const provider = new ethers.JsonRpcProvider(process.env.ZERO_G_EVM_RPC!);
-  const signer = new ethers.Wallet(process.env.ZERO_G_PRIVATE_KEY!, provider);
-  return { indexer, signer };
+  if (!storageSignerPromise) {
+    storageSignerPromise = (async () => {
+      const [{ Indexer }, { JsonRpcProvider, Wallet }] = await Promise.all([
+        loadStorageSdk(),
+        import("ethers"),
+      ]);
+      const indexer = new Indexer(process.env.ZERO_G_STORAGE_INDEXER_RPC!);
+      const provider = new JsonRpcProvider(process.env.ZERO_G_EVM_RPC!);
+      const signer = new Wallet(process.env.ZERO_G_PRIVATE_KEY!, provider);
+      return { indexer, signer };
+    })();
+  }
+  return storageSignerPromise;
 }
 
 async function uploadBytesToMockStorage(data: Uint8Array): Promise<UploadResult> {
@@ -50,7 +75,10 @@ async function uploadBytesToMockStorage(data: Uint8Array): Promise<UploadResult>
 }
 
 async function uploadBytesToRealStorage(data: Uint8Array): Promise<UploadResult> {
-  const { indexer, signer } = await getStorageClients();
+  const [{ MemData }, { indexer, signer }] = await Promise.all([
+    loadStorageSdk(),
+    getStorageClients(),
+  ]);
   const payload = new MemData(data);
   const [, treeError] = await payload.merkleTree();
   if (treeError) {

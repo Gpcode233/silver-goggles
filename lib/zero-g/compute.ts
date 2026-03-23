@@ -1,12 +1,11 @@
-import { createZGComputeNetworkBroker } from "@0glabs/0g-serving-broker";
-import { ethers } from "ethers";
-
 import type { ComputeResult } from "@/lib/types";
 
 type ServiceResponse = {
   endpoint: string;
   model: string;
 };
+
+let computeBrokerPromise: Promise<{ broker: { inference: any } }> | null = null;
 
 function realComputeEnabled(): boolean {
   return (
@@ -17,10 +16,19 @@ function realComputeEnabled(): boolean {
 }
 
 async function getComputeClient() {
-  const provider = new ethers.JsonRpcProvider(process.env.ZERO_G_EVM_RPC!);
-  const wallet = new ethers.Wallet(process.env.ZERO_G_PRIVATE_KEY!, provider);
-  const broker = await createZGComputeNetworkBroker(wallet);
-  return { broker };
+  if (!computeBrokerPromise) {
+    computeBrokerPromise = (async () => {
+      const [{ createZGComputeNetworkBroker }, { JsonRpcProvider, Wallet }] = await Promise.all([
+        import("@0glabs/0g-serving-broker"),
+        import("ethers"),
+      ]);
+      const provider = new JsonRpcProvider(process.env.ZERO_G_EVM_RPC!);
+      const wallet = new Wallet(process.env.ZERO_G_PRIVATE_KEY!, provider);
+      const broker = await createZGComputeNetworkBroker(wallet);
+      return { broker };
+    })();
+  }
+  return computeBrokerPromise;
 }
 
 async function resolveService(): Promise<{

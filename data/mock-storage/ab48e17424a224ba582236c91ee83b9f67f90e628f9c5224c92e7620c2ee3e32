@@ -1,0 +1,9 @@
+{
+  "name": "Storage Test Agent",
+  "description": "Agent for 0G storage proof test",
+  "system_prompt": "You are a test agent for storage verification.",
+  "category": "General",
+  "knowledge_uri": null,
+  "creator": "0xDEMO_WALLET_ADDRESS",
+  "price_per_run": 0.01
+}

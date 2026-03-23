@@ -50,6 +50,14 @@ function realStorageEnabled(): boolean {
   );
 }
 
+function allowMockFallback(): boolean {
+  const value = process.env.ZERO_G_STORAGE_FALLBACK_TO_MOCK;
+  if (value === undefined) {
+    return true;
+  }
+  return value === "true";
+}
+
 async function getStorageClients() {
   if (!storageSignerPromise) {
     storageSignerPromise = (async () => {
@@ -108,14 +116,36 @@ export async function uploadManifest(manifest: object): Promise<UploadResult> {
   if (!realStorageEnabled()) {
     return uploadBytesToMockStorage(body);
   }
-  return uploadBytesToRealStorage(body);
+  try {
+    return await uploadBytesToRealStorage(body);
+  } catch (error) {
+    if (!allowMockFallback()) {
+      throw error;
+    }
+    console.warn(
+      "0G real storage upload failed for manifest. Falling back to mock storage:",
+      error instanceof Error ? error.message : error,
+    );
+    return uploadBytesToMockStorage(body);
+  }
 }
 
 export async function uploadKnowledge(payload: Uint8Array): Promise<UploadResult> {
   if (!realStorageEnabled()) {
     return uploadBytesToMockStorage(payload);
   }
-  return uploadBytesToRealStorage(payload);
+  try {
+    return await uploadBytesToRealStorage(payload);
+  } catch (error) {
+    if (!allowMockFallback()) {
+      throw error;
+    }
+    console.warn(
+      "0G real storage upload failed for knowledge. Falling back to mock storage:",
+      error instanceof Error ? error.message : error,
+    );
+    return uploadBytesToMockStorage(payload);
+  }
 }
 
 export async function downloadText(

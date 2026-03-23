@@ -9,6 +9,7 @@ import { AGENT_CARD_GRADIENTS, AGENT_CATEGORIES, AGENT_MODEL_BADGES, AGENT_MODEL
 type CreateResponse = {
   agent?: { id: number };
   published?: boolean;
+  storageMode?: "real" | "mock";
   publishError?: string;
   error?: string;
 };
@@ -56,7 +57,9 @@ export default function CreateAgentPage() {
     if (created) {
       setStatus(
         published
-          ? "Agent created and published."
+          ? data.storageMode === "real"
+            ? "Agent created and published to 0G Storage."
+            : "Agent created and published using mock storage fallback."
           : "Agent created as draft. Publish it from the agent details page.",
       );
       if (cardImagePreviewUrl) {

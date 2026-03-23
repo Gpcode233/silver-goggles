@@ -1,6 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { parseEther } from "viem";
+import {
+  useAccount,
+  useBalance,
+  useChainId,
+  useChains,
+  usePublicClient,
+  useSendTransaction,
+} from "wagmi";
 
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -18,15 +27,41 @@ type CreditsPayload = {
   error?: string;
 };
 
+type PaymentRail = "native" | "stablecoin" | "fiat";
+
+const QUICK_ADD_AMOUNTS = ["5", "10", "25", "50"] as const;
+const TOPUP_TREASURY_ADDRESS = process.env.NEXT_PUBLIC_TOPUP_TREASURY_ADDRESS?.trim() as
+  | `0x${string}`
+  | undefined;
+
 export function CreditsClient() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [fundingOnchain, setFundingOnchain] = useState(false);
   const [simulatingId, setSimulatingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [state, setState] = useState<CreditsPayload | null>(null);
-  const [amount, setAmount] = useState("25");
-  const [rail, setRail] = useState<"fiat" | "stablecoin">("fiat");
-  const [currency, setCurrency] = useState("USD");
+  const [amount, setAmount] = useState("5");
+  const [rail, setRail] = useState<PaymentRail>("native");
+  const [offchainCurrency, setOffchainCurrency] = useState("USDC");
+  const [pendingTxHash, setPendingTxHash] = useState<`0x${string}` | null>(null);
+
+  const { address, isConnected } = useAccount();
+  const chainId = useChainId();
+  const chains = useChains();
+  const publicClient = usePublicClient({ chainId });
+  const { sendTransactionAsync } = useSendTransaction();
+  const { data: nativeBalance, refetch: refetchNativeBalance } = useBalance({
+    address,
+    chainId,
+    query: { enabled: Boolean(address) },
+  });
+
+  const activeChain = useMemo(
+    () => chains.find((chain) => chain.id === chainId),
+    [chainId, chains],
+  );
+  const nativeSymbol = activeChain?.nativeCurrency.symbol ?? "NATIVE";
 
   async function loadCredits() {
     setLoading(true);
@@ -43,7 +78,6 @@ export function CreditsClient() {
   }
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadCredits();
   }, []);
 
@@ -52,7 +86,11 @@ export function CreditsClient() {
     [state?.topups],
   );
 
-  async function createTopup() {
+  async function createOffchainTopup() {
+    if (rail === "native") {
+      return;
+    }
+
     setSubmitting(true);
     setError("");
     const response = await fetch("/api/credits", {
@@ -61,7 +99,7 @@ export function CreditsClient() {
       body: JSON.stringify({
         amount: Number(amount),
         rail,
-        currency,
+        currency: offchainCurrency,
       }),
     });
 
@@ -71,8 +109,70 @@ export function CreditsClient() {
       setSubmitting(false);
       return;
     }
+
     setSubmitting(false);
     await loadCredits();
+  }
+
+  async function addFundsFromWallet() {
+    const parsedAmount = Number(amount);
+    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+      setError("Enter a valid amount to top up.");
+      return;
+    }
+
+    if (!isConnected || !address) {
+      setError("Connect your wallet before topping up onchain.");
+      return;
+    }
+
+    if (!TOPUP_TREASURY_ADDRESS) {
+      setError("Onchain top-up is not configured. Missing NEXT_PUBLIC_TOPUP_TREASURY_ADDRESS.");
+      return;
+    }
+
+    if (!publicClient) {
+      setError("No RPC client available for the active chain.");
+      return;
+    }
+
+    setFundingOnchain(true);
+    setError("");
+
+    try {
+      const hash = await sendTransactionAsync({
+        to: TOPUP_TREASURY_ADDRESS,
+        chainId,
+        value: parseEther(amount),
+      });
+      setPendingTxHash(hash);
+
+      await publicClient.waitForTransactionReceipt({ hash });
+
+      const response = await fetch("/api/credits/onchain", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          txHash: hash,
+          chainId,
+          fromAddress: address,
+          currency: nativeSymbol.toUpperCase(),
+          expectedAmount: amount,
+        }),
+      });
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Failed to verify onchain top-up");
+      }
+
+      await Promise.all([loadCredits(), refetchNativeBalance()]);
+      setPendingTxHash(null);
+    } catch (onchainError) {
+      setError(onchainError instanceof Error ? onchainError.message : "Failed to process onchain top-up");
+    } finally {
+      setFundingOnchain(false);
+    }
   }
 
   async function simulateWebhook(topupId: number) {
@@ -95,10 +195,10 @@ export function CreditsClient() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="rounded-2xl border border-ink/15 bg-white/70 p-5">
         <h1 className="text-3xl font-black">Credits</h1>
         <p className="muted mt-2 text-sm">
-          Buy credits with fiat or stablecoins. Credits are added after webhook reconciliation.
+          Fund your account from your connected chain wallet, or continue with stablecoin/fiat checkout.
         </p>
         <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
           <p>
@@ -116,37 +216,152 @@ export function CreditsClient() {
 
       <Separator />
 
-      <div>
-        <h2 className="text-xl font-bold">Create Top-Up</h2>
-        <div className="mt-3 grid gap-3 sm:grid-cols-4">
-          <input
-            value={amount}
-            onChange={(event) => setAmount(event.currentTarget.value)}
-            type="number"
-            min={1}
-            step="0.01"
-            className="rounded-xl border border-ink/20 px-3 py-2 text-sm"
-            placeholder="Amount"
-          />
-          <select
-            value={rail}
-            onChange={(event) => setRail(event.currentTarget.value as "fiat" | "stablecoin")}
-            className="rounded-xl border border-ink/20 px-3 py-2 text-sm"
-          >
-            <option value="fiat">Fiat</option>
-            <option value="stablecoin">Stablecoin</option>
-          </select>
-          <input
-            value={currency}
-            onChange={(event) => setCurrency(event.currentTarget.value.toUpperCase())}
-            className="rounded-xl border border-ink/20 px-3 py-2 text-sm"
-            placeholder="Currency (USD, USDC)"
-          />
-          <Button type="button" disabled={submitting} onClick={createTopup}>
-            {submitting ? "Creating..." : "Create Top-Up"}
-          </Button>
+      <section className="rounded-2xl border border-ink/15 bg-white/70 p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-bold">Add Funds</h2>
+          <div className="inline-flex rounded-xl border border-ink/15 bg-white p-1 text-sm">
+            <button
+              type="button"
+              onClick={() => setRail("native")}
+              className={`rounded-lg px-3 py-1.5 ${rail === "native" ? "bg-ink text-white" : "hover:bg-ink/5"}`}
+            >
+              Onchain
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRail("stablecoin");
+                setOffchainCurrency("USDC");
+              }}
+              className={`rounded-lg px-3 py-1.5 ${rail === "stablecoin" ? "bg-ink text-white" : "hover:bg-ink/5"}`}
+            >
+              Stablecoin
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRail("fiat");
+                setOffchainCurrency("USD");
+              }}
+              className={`rounded-lg px-3 py-1.5 ${rail === "fiat" ? "bg-ink text-white" : "hover:bg-ink/5"}`}
+            >
+              Fiat
+            </button>
+          </div>
         </div>
-      </div>
+
+        {rail === "native" ? (
+          <div className="grid gap-4 lg:grid-cols-[1.25fr_1fr]">
+            <div className="space-y-3">
+              <div className="grid gap-2 sm:grid-cols-2">
+                {QUICK_ADD_AMOUNTS.map((quickAmount) => (
+                  <button
+                    key={quickAmount}
+                    type="button"
+                    onClick={() => setAmount(quickAmount)}
+                    className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
+                      amount === quickAmount
+                        ? "border-ink bg-ink text-white"
+                        : "border-ink/20 bg-white hover:bg-ink/5"
+                    }`}
+                  >
+                    {quickAmount} {nativeSymbol}
+                  </button>
+                ))}
+              </div>
+
+              <div className="rounded-xl border border-ink/20 bg-white p-3">
+                <label className="mb-1 block text-sm font-semibold">Custom Amount</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={amount}
+                    onChange={(event) => setAmount(event.currentTarget.value)}
+                    type="number"
+                    min={0}
+                    step="0.0001"
+                    className="w-full rounded-xl border border-ink/20 px-3 py-2 text-sm"
+                    placeholder="Enter amount"
+                  />
+                  <span className="text-sm font-semibold">{nativeSymbol}</span>
+                </div>
+              </div>
+
+              <Button
+                type="button"
+                className="w-full"
+                disabled={fundingOnchain || !isConnected}
+                onClick={addFundsFromWallet}
+              >
+                {fundingOnchain ? "Confirming onchain top-up..." : `Add ${amount || "0"} ${nativeSymbol}`}
+              </Button>
+            </div>
+
+            <aside className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-900">
+              <p className="mb-2 font-semibold">How it works</p>
+              <p className="mb-1">1. We send a native-token transfer from your wallet to the top-up treasury.</p>
+              <p className="mb-1">2. The backend verifies the tx hash on your active chain before crediting.</p>
+              <p>3. Credits are added immediately after onchain confirmation.</p>
+              <div className="mt-3 space-y-1 rounded-xl bg-white/80 p-3 text-xs">
+                <p>
+                  <span className="font-semibold">Active chain:</span> {activeChain?.name ?? "Not detected"}
+                </p>
+                <p>
+                  <span className="font-semibold">Wallet:</span> {address ?? "Not connected"}
+                </p>
+                <p>
+                  <span className="font-semibold">Balance:</span>{" "}
+                  {nativeBalance ? `${Number(nativeBalance.formatted).toFixed(4)} ${nativeBalance.symbol}` : "-"}
+                </p>
+                <p className="break-all">
+                  <span className="font-semibold">Treasury:</span> {TOPUP_TREASURY_ADDRESS ?? "Not configured"}
+                </p>
+                {pendingTxHash ? (
+                  <p className="break-all">
+                    <span className="font-semibold">Pending tx:</span> {pendingTxHash}
+                  </p>
+                ) : null}
+              </div>
+            </aside>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-4">
+            <input
+              value={amount}
+              onChange={(event) => setAmount(event.currentTarget.value)}
+              type="number"
+              min={1}
+              step="0.01"
+              className="rounded-xl border border-ink/20 px-3 py-2 text-sm"
+              placeholder="Amount"
+            />
+            <select
+              value={offchainCurrency}
+              onChange={(event) => setOffchainCurrency(event.currentTarget.value.toUpperCase())}
+              className="rounded-xl border border-ink/20 px-3 py-2 text-sm"
+            >
+              {rail === "stablecoin" ? (
+                <>
+                  <option value="USDC">USDC</option>
+                  <option value="USDT">USDT</option>
+                  <option value="DAI">DAI</option>
+                </>
+              ) : (
+                <>
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="AED">AED</option>
+                </>
+              )}
+            </select>
+            <div className="rounded-xl border border-ink/20 bg-ink/5 px-3 py-2 text-sm">
+              Rail: {rail}
+            </div>
+            <Button type="button" disabled={submitting} onClick={createOffchainTopup}>
+              {submitting ? "Creating..." : "Create Top-Up Order"}
+            </Button>
+          </div>
+        )}
+      </section>
 
       <Separator />
 

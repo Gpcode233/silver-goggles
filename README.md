@@ -51,10 +51,17 @@ http://localhost:3000
 - Default is mock mode:
   - `ZERO_G_STORAGE_MODE=mock`
   - `ZERO_G_COMPUTE_MODE=mock`
+- OpenRouter fallback:
+  - Set `OPENROUTER_API_KEY` to get real chat responses even when `ZERO_G_COMPUTE_MODE` is not `real`.
+  - Optional: set `OPENROUTER_DEFAULT_MODEL` for `openrouter/free` or image-only model selections.
+- Onchain credit top-up:
+  - Set `NEXT_PUBLIC_TOPUP_TREASURY_ADDRESS` so wallet transfers can be verified and credited in-app.
+  - Optional: set `TOPUP_TREASURY_ADDRESS` for server-only override.
 - To use real 0G:
   - Set both modes to `real`
   - Set `ZERO_G_PRIVATE_KEY`
   - Keep `ZERO_G_EVM_RPC` and `ZERO_G_STORAGE_INDEXER_RPC` configured
+  - Optional: keep `ZERO_G_STORAGE_FALLBACK_TO_MOCK=true` so agent creation can still complete if a real upload fails
   - Optionally set `ZERO_G_COMPUTE_PROVIDER`
 
 ## Key Routes
@@ -76,6 +83,7 @@ http://localhost:3000
 - `POST /api/agents/:id/run`
 - `GET /api/credits`
 - `POST /api/credits`
+- `POST /api/credits/onchain` (verify tx and credit from native-token top-up)
 - `POST /api/credits/:id/simulate` (demo webhook reconciliation)
 - `POST /api/webhooks/payments`
 - `GET /api/profile`

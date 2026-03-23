@@ -20,9 +20,9 @@ export function SiteHeader() {
               <Link href="/" className="rounded-full px-3 py-2 transition hover:bg-black/5">
                 Explore Agent
               </Link>
-              <Link href="/create" className="rounded-full px-3 py-2 transition hover:bg-black/5">
+              {/* <Link href="/create" className="rounded-full px-3 py-2 transition hover:bg-black/5">
                 Create Agent
-              </Link>
+              </Link> */}
               <Link href="/credits" className="rounded-full px-3 py-2 transition hover:bg-black/5">
                 Credits
               </Link>

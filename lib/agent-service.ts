@@ -476,6 +476,82 @@ export async function createTopupOrder(params: {
   });
 }
 
+export async function completeOnchainTopup(params: {
+  userId: number;
+  txHash: string;
+  fromAddress: string;
+  chainId: number;
+  currency: string;
+  amount: number;
+}): Promise<{ order: TopupOrderRecord; user: UserRecord; created: boolean }> {
+  return withWrite((db) => {
+    const user = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [params.userId]);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const existing = queryOne<TopupOrderRow>(
+      db,
+      "SELECT * FROM topup_orders WHERE provider_reference = ?",
+      [params.txHash],
+    );
+
+    if (existing) {
+      return {
+        order: mapTopupOrder(existing),
+        user: mapUser(user),
+        created: false,
+      };
+    }
+
+    db.run(
+      `
+        INSERT INTO topup_orders (
+          user_id,
+          rail,
+          currency,
+          amount,
+          credits,
+          status,
+          provider_reference,
+          completed_at
+        )
+        VALUES (?, 'native', ?, ?, ?, 'completed', ?, CURRENT_TIMESTAMP);
+      `,
+      [params.userId, params.currency, params.amount, params.amount, params.txHash],
+    );
+
+    const topupId = getLastInsertId(db);
+
+    db.run("UPDATE users SET credits = credits + ? WHERE id = ?", [params.amount, params.userId]);
+    db.run(
+      `
+        INSERT INTO credit_ledger (user_id, kind, amount, reference_type, reference_id, note)
+        VALUES (?, 'topup', ?, 'topup_order', ?, ?);
+      `,
+      [
+        params.userId,
+        params.amount,
+        topupId,
+        `Onchain top-up (${params.currency}) on chain ${params.chainId} from ${params.fromAddress}`,
+      ],
+    );
+
+    const order = queryOne<TopupOrderRow>(db, "SELECT * FROM topup_orders WHERE id = ?", [topupId]);
+    const updatedUser = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [params.userId]);
+
+    if (!order || !updatedUser) {
+      throw new Error("Failed to persist onchain top-up");
+    }
+
+    return {
+      order: mapTopupOrder(order),
+      user: mapUser(updatedUser),
+      created: true,
+    };
+  });
+}
+
 export async function getTopupOrderById(id: number): Promise<TopupOrderRecord | null> {
   return withRead((db) => {
     const row = queryOne<TopupOrderRow>(db, "SELECT * FROM topup_orders WHERE id = ?", [id]);

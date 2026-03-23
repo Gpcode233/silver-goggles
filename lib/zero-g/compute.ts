@@ -5,7 +5,34 @@ type ServiceResponse = {
   model: string;
 };
 
-let computeBrokerPromise: Promise<{ broker: { inference: any } }> | null = null;
+type OpenRouterPayload = {
+  choices?: Array<{
+    message?: {
+      content?: string | Array<{ type?: string; text?: string }>;
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
+type ComputeServiceSummary = {
+  provider: string;
+  teeSignerAcknowledged?: boolean;
+};
+
+type ComputeInferenceClient = {
+  listService: (offset: number, limit: number, onlyActive: boolean) => Promise<ComputeServiceSummary[]>;
+  acknowledgeProviderSigner: (providerAddress: string) => Promise<void>;
+  getServiceMetadata: (providerAddress: string) => Promise<ServiceResponse>;
+  getRequestHeaders: (providerAddress: string, userInput: string) => Promise<Record<string, string>>;
+};
+
+type ComputeBroker = {
+  inference: ComputeInferenceClient;
+};
+
+let computeBrokerPromise: Promise<{ broker: ComputeBroker }> | null = null;
 
 function realComputeEnabled(): boolean {
   return (
@@ -13,6 +40,51 @@ function realComputeEnabled(): boolean {
     Boolean(process.env.ZERO_G_EVM_RPC) &&
     Boolean(process.env.ZERO_G_PRIVATE_KEY)
   );
+}
+
+function openRouterEnabled(): boolean {
+  return Boolean(process.env.OPENROUTER_API_KEY?.trim());
+}
+
+function resolveOpenRouterModel(requestedModel?: string): string {
+  const fallbackModel =
+    process.env.OPENROUTER_DEFAULT_MODEL?.trim() || "meta-llama/llama-3.2-3b-instruct:free";
+  const model = requestedModel?.trim() || fallbackModel;
+  const imageOnlyModels = new Set([
+    "google/gemini-2.5-flash-image",
+    "google/gemini-3-pro-image-preview",
+    "openai/gpt-5-image",
+    "openai/gpt-5-image-mini",
+  ]);
+
+  if (model === "openrouter/free") {
+    return fallbackModel;
+  }
+
+  if (imageOnlyModels.has(model)) {
+    return fallbackModel;
+  }
+
+  return model;
+}
+
+function extractMessageContent(content: OpenRouterPayload["choices"] extends Array<infer Choice>
+  ? Choice extends { message?: { content?: infer Content } }
+    ? Content
+    : never
+  : never): string {
+  if (typeof content === "string") {
+    return content.trim();
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => (part?.type === "text" ? part.text ?? "" : ""))
+      .join("")
+      .trim();
+  }
+
+  return "";
 }
 
 async function getComputeClient() {
@@ -65,6 +137,62 @@ async function resolveService(): Promise<{
   };
 }
 
+async function runOpenRouterInference(params: {
+  systemPrompt: string;
+  knowledge: string;
+  userInput: string;
+  model?: string;
+}): Promise<ComputeResult> {
+  const apiKey = process.env.OPENROUTER_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("OPENROUTER_API_KEY is missing");
+  }
+
+  const selectedModel = resolveOpenRouterModel(params.model);
+  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000",
+      "X-Title": "Ajently",
+    },
+    body: JSON.stringify({
+      model: selectedModel,
+      messages: [
+        {
+          role: "system",
+          content: [params.systemPrompt, params.knowledge ? `Knowledge:\n${params.knowledge}` : ""]
+            .filter(Boolean)
+            .join("\n\n"),
+        },
+        { role: "user", content: params.userInput },
+      ],
+      temperature: 0.7,
+    }),
+  });
+
+  if (!response.ok) {
+    const detail = (await response.json().catch(() => null)) as OpenRouterPayload | null;
+    const message = detail?.error?.message ?? `HTTP ${response.status}`;
+    throw new Error(`OpenRouter call failed (${response.status}): ${message}`);
+  }
+
+  const payload = (await response.json()) as OpenRouterPayload;
+  const output = extractMessageContent(payload.choices?.[0]?.message?.content);
+
+  if (!output) {
+    throw new Error("OpenRouter returned an empty response payload.");
+  }
+
+  return {
+    output,
+    mode: "openrouter",
+    model: selectedModel,
+    providerAddress: "openrouter",
+  };
+}
+
 function runMockInference(
   systemPrompt: string,
   knowledge: string,
@@ -94,56 +222,68 @@ export async function runInference(params: {
   userInput: string;
   model?: string;
 }): Promise<ComputeResult> {
-  if (!realComputeEnabled()) {
-    return runMockInference(params.systemPrompt, params.knowledge, params.userInput, params.model);
-  }
+  if (realComputeEnabled()) {
+    const { providerAddress, endpoint, model: serviceModel, broker } = await resolveService();
+    const selectedModel = params.model?.trim() || serviceModel;
+    const requestHeaders = await broker.inference.getRequestHeaders(providerAddress, params.userInput);
 
-  const { providerAddress, endpoint, model: serviceModel, broker } = await resolveService();
-  const selectedModel = params.model?.trim() || serviceModel;
-  const requestHeaders = await broker.inference.getRequestHeaders(providerAddress, params.userInput);
+    const response = await fetch(`${endpoint.replace(/\/$/, "")}/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...requestHeaders,
+      },
+      body: JSON.stringify({
+        model: selectedModel,
+        messages: [
+          {
+            role: "system",
+            content: [params.systemPrompt, params.knowledge ? `Knowledge:\n${params.knowledge}` : ""]
+              .filter(Boolean)
+              .join("\n\n"),
+          },
+          { role: "user", content: params.userInput },
+        ],
+        temperature: 0.7,
+      }),
+    });
 
-  const response = await fetch(`${endpoint.replace(/\/$/, "")}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...requestHeaders,
-    },
-    body: JSON.stringify({
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(`0G compute call failed (${response.status}): ${detail}`);
+    }
+
+    const payload = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+
+    const output =
+      payload.choices?.[0]?.message?.content?.trim() ??
+      "0G compute returned an empty response payload.";
+
+    return {
+      output,
+      mode: "real",
       model: selectedModel,
-      messages: [
-        {
-          role: "system",
-          content: [params.systemPrompt, params.knowledge ? `Knowledge:\n${params.knowledge}` : ""]
-            .filter(Boolean)
-            .join("\n\n"),
-        },
-        { role: "user", content: params.userInput },
-      ],
-      temperature: 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`0G compute call failed (${response.status}): ${detail}`);
+      providerAddress,
+    };
   }
 
-  const payload = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
+  if (openRouterEnabled()) {
+    return runOpenRouterInference(params);
+  }
 
-  const output =
-    payload.choices?.[0]?.message?.content?.trim() ??
-    "0G compute returned an empty response payload.";
-
-  return {
-    output,
-    mode: "real",
-    model: selectedModel,
-    providerAddress,
-  };
+  return runMockInference(params.systemPrompt, params.knowledge, params.userInput, params.model);
 }
 
-export function computeMode(): "real" | "mock" {
-  return realComputeEnabled() ? "real" : "mock";
+export function computeMode(): "real" | "openrouter" | "mock" {
+  if (realComputeEnabled()) {
+    return "real";
+  }
+
+  if (openRouterEnabled()) {
+    return "openrouter";
+  }
+
+  return "mock";
 }

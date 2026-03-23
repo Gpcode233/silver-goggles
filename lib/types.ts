@@ -17,17 +17,17 @@ export const AGENT_MODELS = [
   "meta-llama/llama-3.3-70b-instruct:free",
   "mistralai/mistral-small-3.1-24b-instruct:free",
   "google/gemma-3-27b-it:free",
-  "deepseek/deepseek-r1:free",
-  "google/gemini-2.5-flash-image-preview",
-  "black-forest-labs/flux.2-flex",
-  "black-forest-labs/flux.2-pro",
-  "sourceful/riverflow-v2-standard-preview",
-  "qwen/qwen2.5-vl-32b-instruct:free",
-  "qwen/qwen2.5-vl-72b-instruct:free",
-  "meta-llama/llama-3.2-11b-vision-instruct:free",
-  "moonshotai/kimi-vl-a3b-thinking:free",
+  "deepseek/deepseek-r1-0528:free",
+  "google/gemini-2.5-flash-image",
+  "google/gemini-3-pro-image-preview",
+  "openai/gpt-5-image-mini",
+  "openai/gpt-oss-20b:free",
+  "qwen/qwen2.5-vl-32b-instruct",
+  "qwen/qwen2.5-vl-72b-instruct",
+  "meta-llama/llama-3.2-11b-vision-instruct",
+  "moonshotai/kimi-k2",
   "qwen/qwen-2.5-7b-instruct",
-  "qwen/qwen-2.5-14b-instruct",
+  "qwen/qwen3-14b",
   "meta-llama/llama-3.1-8b-instruct",
   "meta-llama/llama-3.1-70b-instruct",
 ] as const;
@@ -40,17 +40,17 @@ export const AGENT_MODEL_BADGES: Record<AgentModel, "text" | "image" | "vision">
   "meta-llama/llama-3.3-70b-instruct:free": "text",
   "mistralai/mistral-small-3.1-24b-instruct:free": "text",
   "google/gemma-3-27b-it:free": "text",
-  "deepseek/deepseek-r1:free": "text",
-  "google/gemini-2.5-flash-image-preview": "image",
-  "black-forest-labs/flux.2-flex": "image",
-  "black-forest-labs/flux.2-pro": "image",
-  "sourceful/riverflow-v2-standard-preview": "image",
-  "qwen/qwen2.5-vl-32b-instruct:free": "vision",
-  "qwen/qwen2.5-vl-72b-instruct:free": "vision",
-  "meta-llama/llama-3.2-11b-vision-instruct:free": "vision",
-  "moonshotai/kimi-vl-a3b-thinking:free": "vision",
+  "deepseek/deepseek-r1-0528:free": "text",
+  "google/gemini-2.5-flash-image": "image",
+  "google/gemini-3-pro-image-preview": "image",
+  "openai/gpt-5-image-mini": "image",
+  "openai/gpt-oss-20b:free": "text",
+  "qwen/qwen2.5-vl-32b-instruct": "vision",
+  "qwen/qwen2.5-vl-72b-instruct": "vision",
+  "meta-llama/llama-3.2-11b-vision-instruct": "vision",
+  "moonshotai/kimi-k2": "text",
   "qwen/qwen-2.5-7b-instruct": "text",
-  "qwen/qwen-2.5-14b-instruct": "text",
+  "qwen/qwen3-14b": "text",
   "meta-llama/llama-3.1-8b-instruct": "text",
   "meta-llama/llama-3.1-70b-instruct": "text",
 };
@@ -117,7 +117,7 @@ export type CreditLedgerRecord = {
   createdAt: string;
 };
 
-export type TopupRail = "fiat" | "stablecoin";
+export type TopupRail = "native" | "fiat" | "stablecoin";
 export type TopupStatus = "pending" | "completed" | "failed";
 
 export type TopupOrderRecord = {
@@ -146,7 +146,7 @@ export type AgentManifest = {
 
 export type ComputeResult = {
   output: string;
-  mode: "real" | "mock";
+  mode: "real" | "openrouter" | "mock";
   model: string;
   providerAddress: string;
 };

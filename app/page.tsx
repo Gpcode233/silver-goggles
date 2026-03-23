@@ -3,8 +3,6 @@ import Link from "next/link";
 import { AgentCard } from "@/components/agent-card";
 import { listAgents } from "@/lib/agent-service";
 import { AGENT_CATEGORIES } from "@/lib/types";
-import { computeMode } from "@/lib/zero-g/compute";
-import { storageMode } from "@/lib/zero-g/storage";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -27,7 +25,7 @@ export default async function HomePage({
   const search = params.search ?? "";
   const category = params.category ?? "";
 
-  const agents = await listAgents({ search, category });
+  const agents = await listAgents({ search, category, includeDrafts: true });
 
   return (
     <main>
@@ -41,10 +39,12 @@ export default async function HomePage({
               <h1 className="max-w-2xl text-3xl font-black leading-tight sm:text-4xl">
                 Do better work with AI agents.
               </h1>
-              <p className="muted mt-3 max-w-2xl"></p>
+              <p className="muted mt-3 max-w-2xl">
+                Ajently is a next-gen platform that enables users to solve real problems, automate tasks, and move faster.
+              </p>
               <div className="mt-5 flex flex-wrap gap-2 text-xs font-bold">
-                <span className="rounded-full bg-mint/20 px-3 py-1">Storage: {storageMode()}</span>
-                <span className="rounded-full bg-ember/25 px-3 py-1">Compute: {computeMode()}</span>
+                {/* <span className="rounded-full bg-mint/20 px-3 py-1">Storage: {storageMode()}</span>
+                <span className="rounded-full bg-ember/25 px-3 py-1">Compute: {computeMode()}</span> */}
               </div>
             </div>
             <div className="flex lg:justify-end">
@@ -98,12 +98,12 @@ export default async function HomePage({
         <div>
           {agents.length === 0 ? (
             <div className="rounded-2xl border border-ink/15 p-10 text-center">
-              <p className="mb-3 text-lg font-bold">No published agents found</p>
+              <p className="mb-3 text-lg font-bold">No agents found</p>
               <Link
                 href="/create"
                 className="rounded-full border border-ink/20 px-4 py-2 text-sm font-semibold hover:bg-ink/5"
               >
-                Publish the first one
+                Create the first one
               </Link>
             </div>
           ) : (

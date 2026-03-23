@@ -7,6 +7,19 @@ import { DATA_DIR, resolveDataPath } from "@/lib/data-dir";
 
 const DB_PATH = resolveDataPath("Ajently.sqlite");
 
+const MODEL_MIGRATIONS: ReadonlyArray<readonly [from: string, to: string]> = [
+  ["deepseek/deepseek-r1:free", "deepseek/deepseek-r1-0528:free"],
+  ["google/gemini-2.5-flash-image-preview", "google/gemini-2.5-flash-image"],
+  ["black-forest-labs/flux.2-flex", "google/gemini-3-pro-image-preview"],
+  ["black-forest-labs/flux.2-pro", "openai/gpt-5-image-mini"],
+  ["sourceful/riverflow-v2-standard-preview", "openai/gpt-5-image-mini"],
+  ["qwen/qwen2.5-vl-32b-instruct:free", "qwen/qwen2.5-vl-32b-instruct"],
+  ["qwen/qwen2.5-vl-72b-instruct:free", "qwen/qwen2.5-vl-72b-instruct"],
+  ["meta-llama/llama-3.2-11b-vision-instruct:free", "meta-llama/llama-3.2-11b-vision-instruct"],
+  ["moonshotai/kimi-vl-a3b-thinking:free", "moonshotai/kimi-k2"],
+  ["qwen/qwen-2.5-14b-instruct", "qwen/qwen3-14b"],
+];
+
 const DEMO_AGENTS = [
   {
     name: "Viral Hook Architect",
@@ -52,7 +65,7 @@ const DEMO_AGENTS = [
     name: "Market Intel Scout",
     description: "Summarizes competitor moves and trend signals.",
     category: "Research",
-    model: "deepseek/deepseek-r1:free",
+    model: "deepseek/deepseek-r1-0528:free",
     systemPrompt:
       "You are a research analyst summarizing market signals, competitor activity, and key takeaways.",
     pricePerRun: 0.04,
@@ -62,7 +75,7 @@ const DEMO_AGENTS = [
     name: "Brand Moodboarder",
     description: "Generates visual style directions and moodboard prompts.",
     category: "Design",
-    model: "black-forest-labs/flux.2-flex",
+    model: "google/gemini-3-pro-image-preview",
     systemPrompt:
       "You are a creative director who defines moodboards, palettes, and visual directions for brands.",
     pricePerRun: 0.05,
@@ -72,7 +85,7 @@ const DEMO_AGENTS = [
     name: "Receipt Vision Auditor",
     description: "Inspects receipts and flags anomalies or missing fields.",
     category: "Finance",
-    model: "qwen/qwen2.5-vl-32b-instruct:free",
+    model: "qwen/qwen2.5-vl-32b-instruct",
     systemPrompt:
       "You analyze receipts and invoices, extracting key fields and spotting inconsistencies.",
     pricePerRun: 0.03,
@@ -145,6 +158,17 @@ async function initializeSchema(db: Database): Promise<void> {
   ensureColumn(db, "agents", "card_image_data_url", "TEXT");
   ensureColumn(db, "agents", "card_gradient", "TEXT NOT NULL DEFAULT 'aurora'");
   ensureColumn(db, "agents", "model", "TEXT NOT NULL DEFAULT 'openrouter/free'");
+
+  for (const [from, to] of MODEL_MIGRATIONS) {
+    db.run(
+      `
+        UPDATE agents
+        SET model = ?
+        WHERE model = ?;
+      `,
+      [to, from],
+    );
+  }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS runs (

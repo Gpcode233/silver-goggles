@@ -28,3 +28,11 @@ export const createTopupSchema = z.object({
   currency: z.string().trim().toUpperCase().min(2).max(12),
   amount: z.coerce.number().min(1).max(10000),
 });
+
+export const createOnchainTopupSchema = z.object({
+  txHash: z.string().trim().regex(/^0x[a-fA-F0-9]{64}$/),
+  chainId: z.coerce.number().int().positive(),
+  fromAddress: z.string().trim().regex(/^0x[a-fA-F0-9]{40}$/),
+  currency: z.string().trim().toUpperCase().min(1).max(12),
+  expectedAmount: z.string().trim().regex(/^\d+(\.\d{1,18})?$/).optional(),
+});

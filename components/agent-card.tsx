@@ -18,6 +18,13 @@ export function AgentCard({ agent }: { agent: AgentRecord }) {
           <span className="rounded-full bg-ink/5 px-2 py-1 text-xs font-semibold">
             {agent.category}
           </span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] ${
+              agent.published ? "bg-mint/25 text-ink" : "bg-ember/20 text-ink"
+            }`}
+          >
+            {agent.published ? "Published" : "Draft"}
+          </span>
           <span className="font-[var(--font-mono)] text-xs">
             {formatUsd(agent.pricePerRun)} / run
           </span>

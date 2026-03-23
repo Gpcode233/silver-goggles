@@ -25,7 +25,9 @@ export default async function AgentChatPage({
 
   return (
     <main>
-      <ChatClient agentId={agent.id} agentName={agent.name} initialCredits={user.credits} />
+      <div>
+        <ChatClient agentId={agent.id} agentName={agent.name} initialCredits={user.credits} />
+      </div>
     </main>
   );
 }

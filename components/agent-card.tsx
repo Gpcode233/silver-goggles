@@ -7,23 +7,22 @@ import type { AgentRecord } from "@/lib/types";
 export function AgentCard({ agent }: { agent: AgentRecord }) {
   return (
     <article className="glass animate-rise rounded-2xl p-5 shadow-panel">
-      <div className="mb-4 flex justify-center">
+      <div className="mb-3 flex items-center justify-between gap-4">
         <div
           className="h-12 w-12 rounded-full border border-ink/15 bg-cover bg-center"
           style={{
             backgroundImage: cardBackgroundImage(agent.cardImageDataUrl, agent.cardGradient),
           }}
         />
+        <div className="flex flex-col items-end gap-1 text-right">
+          <span className="rounded-full bg-ink/5 px-2 py-1 text-xs font-semibold">
+            {agent.category}
+          </span>
+          <span className="font-[var(--font-mono)] text-xs">
+            {formatUsd(agent.pricePerRun)} / run
+          </span>
+        </div>
       </div>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <span className="rounded-full bg-ink/5 px-2 py-1 text-xs font-semibold">{agent.category}</span>
-        <span className="font-[var(--font-mono)] text-xs">
-          {formatUsd(agent.pricePerRun)} / run
-        </span>
-      </div>
-      <p className="mb-2 font-[var(--font-mono)] text-[11px] uppercase text-ink/65">
-        Model: {agent.model}
-      </p>
       <h3 className="mb-2 text-xl font-bold leading-tight">{agent.name}</h3>
       <p className="muted mb-4 text-sm">{agent.description}</p>
       <div className="flex items-center gap-2">

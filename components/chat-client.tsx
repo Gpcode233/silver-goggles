@@ -221,8 +221,8 @@ export function ChatClient({
   }, [runAgent]);
 
   return (
-    <section className="grid min-h-[78vh] gap-4 lg:grid-cols-[280px_1fr]">
-      <aside className="glass flex flex-col rounded-2xl p-4 shadow-panel">
+    <div className="grid min-h-[78vh] gap-4 lg:grid-cols-[280px_1fr]">
+      <aside className="flex flex-col rounded-2xl border border-ink/15 p-4">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-flare">Agent Chat</p>
           <h1 className="text-xl font-black">{agentName}</h1>
@@ -234,9 +234,6 @@ export function ChatClient({
         <div className="mt-4 flex gap-2">
           <Button type="button" className="flex-1" onClick={createNewChat}>
             New chat
-          </Button>
-          <Button asChild type="button" variant="outline" className="flex-1">
-            <Link href="/">Explore agents</Link>
           </Button>
         </div>
 
@@ -274,7 +271,7 @@ export function ChatClient({
         </div>
       </aside>
 
-      <div className="glass flex min-h-0 flex-col rounded-2xl shadow-panel">
+      <div className="flex min-h-0 flex-col rounded-2xl border border-ink/15">
         <div className="border-b border-ink/10 px-4 py-3">
           <p className="text-sm font-semibold">{activeSession?.title ?? "New chat"}</p>
           {lastComputeMeta ? (
@@ -331,6 +328,6 @@ export function ChatClient({
           {error ? <p className="mt-2 text-sm font-semibold text-red-600">{error}</p> : null}
         </div>
       </div>
-    </section>
+    </div>
   );
 }

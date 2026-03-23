@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { formatCredits } from "@/lib/format";
 import type { CreditLedgerRecord, TopupOrderRecord } from "@/lib/types";
 
@@ -94,14 +95,15 @@ export function CreditsClient() {
 
   return (
     <div className="space-y-6">
-      <section className="glass rounded-3xl border-2 border-ink/15 p-6">
+      <div>
         <h1 className="text-3xl font-black">Credits</h1>
         <p className="muted mt-2 text-sm">
           Buy credits with fiat or stablecoins. Credits are added after webhook reconciliation.
         </p>
         <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
           <p>
-            <span className="font-semibold">Remaining:</span> {formatCredits(state?.stats.remaining ?? 0)}
+            <span className="font-semibold">Remaining:</span>{" "}
+            {formatCredits(state?.stats.remaining ?? 0)}
           </p>
           <p>
             <span className="font-semibold">Used:</span> {formatCredits(state?.stats.used ?? 0)}
@@ -110,9 +112,11 @@ export function CreditsClient() {
             <span className="font-semibold">Topped Up:</span> {formatCredits(state?.stats.toppedUp ?? 0)}
           </p>
         </div>
-      </section>
+      </div>
 
-      <section className="glass rounded-3xl border-2 border-ink/15 p-6">
+      <Separator />
+
+      <div>
         <h2 className="text-xl font-bold">Create Top-Up</h2>
         <div className="mt-3 grid gap-3 sm:grid-cols-4">
           <input
@@ -142,16 +146,18 @@ export function CreditsClient() {
             {submitting ? "Creating..." : "Create Top-Up"}
           </Button>
         </div>
-      </section>
+      </div>
 
-      <section className="glass rounded-3xl border-2 border-ink/15 p-6">
+      <Separator />
+
+      <div>
         <h2 className="text-xl font-bold">Pending Reconciliation</h2>
         {pendingTopups.length === 0 ? (
           <p className="muted mt-2 text-sm">No pending top-ups.</p>
         ) : (
           <div className="mt-3 space-y-2">
             {pendingTopups.map((topup) => (
-              <article key={topup.id} className="rounded-xl border border-ink/20 bg-white px-3 py-2 text-sm">
+              <article key={topup.id} className="rounded-xl border border-ink/20 px-3 py-2 text-sm">
                 <p>
                   <span className="font-semibold">Order #{topup.id}</span> | {topup.rail} | {topup.currency}{" "}
                   {topup.amount}
@@ -172,14 +178,16 @@ export function CreditsClient() {
             ))}
           </div>
         )}
-      </section>
+      </div>
 
-      <section className="glass rounded-3xl border-2 border-ink/15 p-6">
+      <Separator />
+
+      <div>
         <h2 className="text-xl font-bold">Credit Ledger</h2>
         {state?.ledger.length ? (
           <div className="mt-3 space-y-2">
             {state.ledger.slice(0, 25).map((entry) => (
-              <article key={entry.id} className="rounded-xl border border-ink/20 bg-white px-3 py-2 text-sm">
+              <article key={entry.id} className="rounded-xl border border-ink/20 px-3 py-2 text-sm">
                 <p>
                   <span className="font-semibold">{entry.kind}</span> | {entry.amount > 0 ? "+" : ""}
                   {formatCredits(entry.amount)}
@@ -192,7 +200,7 @@ export function CreditsClient() {
         ) : (
           <p className="muted mt-2 text-sm">No ledger entries yet.</p>
         )}
-      </section>
+      </div>
 
       {error ? <p className="text-sm font-semibold text-red-600">{error}</p> : null}
     </div>

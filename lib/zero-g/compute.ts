@@ -1,4 +1,5 @@
 import type { ComputeResult } from "@/lib/types";
+import type { InferenceServingRequestHeaders } from "@0glabs/0g-serving-broker";
 
 type ServiceResponse = {
   endpoint: string;
@@ -29,7 +30,10 @@ type ComputeInferenceClient = {
   listService: (offset: number, limit: number, onlyActive: boolean) => Promise<ComputeServiceSummary[]>;
   acknowledgeProviderSigner: (providerAddress: string) => Promise<void>;
   getServiceMetadata: (providerAddress: string) => Promise<ServiceResponse>;
-  getRequestHeaders: (providerAddress: string, userInput: string) => Promise<Record<string, string>>;
+  getRequestHeaders: (
+    providerAddress: string,
+    userInput: string,
+  ) => Promise<InferenceServingRequestHeaders>;
 };
 
 type ComputeBroker = {
@@ -85,6 +89,12 @@ function extractMessageContent(content: OpenRouterMessageContent | null | undefi
   }
 
   return "";
+}
+
+function toFetchHeaders(headers: InferenceServingRequestHeaders): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(headers).filter((entry): entry is [string, string] => typeof entry[1] === "string"),
+  );
 }
 
 async function getComputeClient() {
@@ -225,7 +235,9 @@ export async function runInference(params: {
   if (realComputeEnabled()) {
     const { providerAddress, endpoint, model: serviceModel, broker } = await resolveService();
     const selectedModel = params.model?.trim() || serviceModel;
-    const requestHeaders = await broker.inference.getRequestHeaders(providerAddress, params.userInput);
+    const requestHeaders = toFetchHeaders(
+      await broker.inference.getRequestHeaders(providerAddress, params.userInput),
+    );
 
     const response = await fetch(`${endpoint.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",

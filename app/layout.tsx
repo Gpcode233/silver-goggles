@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Space_Mono } from "next/font/google";
 
-import favicon from "@/assets/favicon.png";
+import favicon from "@/assets/favicon.ico";
 import { SiteHeader } from "@/components/site-header";
 import { Web3Provider } from "@/components/web3-provider";
 
@@ -23,9 +23,9 @@ export const metadata: Metadata = {
   description:
     "Publish, discover, and run AI agents on decentralized 0G Compute + 0G Storage.",
   icons: {
-    icon: [{ url: favicon.src, type: "image/png" }],
-    shortcut: [{ url: favicon.src, type: "image/png" }],
-    apple: [{ url: favicon.src, type: "image/png" }],
+    icon: [{ url: favicon.src, type: "image/ico" }],
+    shortcut: [{ url: favicon.src, type: "image/ico" }],
+    apple: [{ url: favicon.src, type: "image/ico" }],
   },
 };
 

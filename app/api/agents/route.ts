@@ -4,6 +4,7 @@ import path from "node:path";
 import { NextResponse } from "next/server";
 
 import { createAgent, DEMO_USER_ID, listAgents, attachKnowledgeFile } from "@/lib/agent-service";
+import { resolveDataPath } from "@/lib/data-dir";
 import { publishAgent } from "@/lib/publish-agent";
 import { listAgentsSchema, createAgentSchema } from "@/lib/validation";
 
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
 
   const uploadedFile = formData.get("knowledge_file");
   if (uploadedFile instanceof File && uploadedFile.size > 0) {
-    const knowledgeDir = path.join(process.cwd(), "data", "knowledge");
+    const knowledgeDir = resolveDataPath("knowledge");
     await fs.mkdir(knowledgeDir, { recursive: true });
 
     const filename = sanitizeFilename(uploadedFile.name || "knowledge.txt");

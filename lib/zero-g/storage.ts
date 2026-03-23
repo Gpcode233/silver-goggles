@@ -5,6 +5,8 @@ import path from "node:path";
 import { Indexer, MemData } from "@0glabs/0g-ts-sdk";
 import { ethers } from "ethers";
 
+import { resolveDataPath } from "@/lib/data-dir";
+
 export type UploadResult = {
   rootHash: string;
   uri: string;
@@ -12,8 +14,8 @@ export type UploadResult = {
   mode: "real" | "mock";
 };
 
-const MOCK_STORAGE_DIR = path.join(process.cwd(), "data", "mock-storage");
-const DOWNLOAD_DIR = path.join(process.cwd(), "data", "downloads");
+const MOCK_STORAGE_DIR = resolveDataPath("mock-storage");
+const DOWNLOAD_DIR = resolveDataPath("downloads");
 
 function getRootHashFromUri(uri: string): string {
   const normalized = uri.trim();

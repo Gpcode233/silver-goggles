@@ -242,18 +242,16 @@ export default function CreateAgentPage() {
 
           <div className="space-y-2">
             <label className="text-sm font-semibold">Card Preview</label>
-            <div className="overflow-hidden rounded-2xl border-2 border-ink/25 bg-white">
+            <div className="flex items-center gap-3 rounded-2xl border-2 border-ink/25 bg-white px-3 py-3">
               <div
-                className="h-40 w-full bg-cover bg-center"
+                className="h-12 w-12 rounded-full border border-ink/15 bg-cover bg-center"
                 style={{
                   backgroundImage: cardBackgroundImage(cardImagePreviewUrl, cardGradient),
                 }}
               />
-              <div className="border-t border-ink/15 px-3 py-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink/70">
-                  {cardImagePreviewUrl ? "Image profile preview" : `${cardGradient} gradient preview`}
-                </p>
-              </div>
+              <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink/70">
+                {cardImagePreviewUrl ? "Image profile preview" : `${cardGradient} gradient preview`}
+              </p>
             </div>
           </div>
 

@@ -31,20 +31,20 @@ export default async function AgentDetailPage({
     <main className="space-y-6">
       <section className="glass rounded-3xl p-6 shadow-panel sm:p-8">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="mb-3 overflow-hidden rounded-2xl border border-ink/15">
-              <div
-                className="h-40 w-full bg-cover bg-center"
-                style={{
-                  backgroundImage: cardBackgroundImage(agent.cardImageDataUrl, agent.cardGradient),
-                }}
-              />
+          <div className="flex flex-wrap items-start gap-4">
+            <div
+              className="h-12 w-12 shrink-0 rounded-full border border-ink/15 bg-cover bg-center"
+              style={{
+                backgroundImage: cardBackgroundImage(agent.cardImageDataUrl, agent.cardGradient),
+              }}
+            />
+            <div>
+              <p className="mb-2 inline-block rounded-full bg-ink/5 px-2 py-1 text-xs font-semibold">
+                {agent.category}
+              </p>
+              <h1 className="text-3xl font-black">{agent.name}</h1>
+              <p className="muted mt-2 max-w-3xl">{agent.description}</p>
             </div>
-            <p className="mb-2 inline-block rounded-full bg-ink/5 px-2 py-1 text-xs font-semibold">
-              {agent.category}
-            </p>
-            <h1 className="text-3xl font-black">{agent.name}</h1>
-            <p className="muted mt-2 max-w-3xl">{agent.description}</p>
           </div>
           <p className="font-[var(--font-mono)] text-sm">{formatUsd(agent.pricePerRun)} / run</p>
         </div>

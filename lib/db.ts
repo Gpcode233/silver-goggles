@@ -3,8 +3,9 @@ import path from "node:path";
 
 import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const DB_PATH = path.join(DATA_DIR, "Ajently.sqlite");
+import { DATA_DIR, resolveDataPath } from "@/lib/data-dir";
+
+const DB_PATH = resolveDataPath("Ajently.sqlite");
 
 const DEMO_AGENTS = [
   {

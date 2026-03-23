@@ -7,9 +7,9 @@ import type { AgentRecord } from "@/lib/types";
 export function AgentCard({ agent }: { agent: AgentRecord }) {
   return (
     <article className="glass animate-rise rounded-2xl p-5 shadow-panel">
-      <div className="mb-4 overflow-hidden rounded-xl border border-ink/15">
+      <div className="mb-4 flex justify-center">
         <div
-          className="h-32 w-full bg-cover bg-center"
+          className="h-12 w-12 rounded-full border border-ink/15 bg-cover bg-center"
           style={{
             backgroundImage: cardBackgroundImage(agent.cardImageDataUrl, agent.cardGradient),
           }}

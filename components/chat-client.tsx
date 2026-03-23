@@ -221,8 +221,8 @@ export function ChatClient({
   }, [runAgent]);
 
   return (
-    <div className="grid min-h-[78vh] gap-4 lg:grid-cols-[280px_1fr]">
-      <aside className="flex flex-col rounded-2xl border border-ink/15 p-4">
+    <div className="grid h-[calc(100vh-8rem)] min-h-[70vh] w-full gap-0 lg:grid-cols-[260px_1fr]">
+      <aside className="flex flex-col border border-ink/15 p-4 lg:border-r-0">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.12em] text-flare">Agent Chat</p>
           <h1 className="text-xl font-black">{agentName}</h1>
@@ -271,7 +271,7 @@ export function ChatClient({
         </div>
       </aside>
 
-      <div className="flex min-h-0 flex-col rounded-2xl border border-ink/15">
+      <div className="flex min-h-0 flex-col border border-ink/15">
         <div className="border-b border-ink/10 px-4 py-3">
           <p className="text-sm font-semibold">{activeSession?.title ?? "New chat"}</p>
           {lastComputeMeta ? (

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ArrowRight02Icon } from '@hugeicons/core-free-icons';
 
 import { AgentCard } from "@/components/agent-card";
 import { listAgents } from "@/lib/agent-service";
@@ -58,8 +60,6 @@ export default async function HomePage({
           </div>
         </div>
 
-        <Separator />
-
         <div className="px-4">
           <form className="grid gap-3 sm:grid-cols-[2fr_1fr_auto]">
             <input
@@ -88,7 +88,7 @@ export default async function HomePage({
               variant="default"
               className="rounded-xl bg-ink px-4 py-2 text-sm font-semibold text-white transition hover:bg-ink/90"
             >
-              Apply
+              <HugeiconsIcon icon={ArrowRight02Icon} />
             </Button>
           </form>
         </div>

@@ -5,19 +5,11 @@ import Link from "next/link";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 import AjentlyLogo from "@/assets/Ajently.png";
-import { LiquidGlassCard } from "@/components/ui/liquid-glass";
 
 export function SiteHeader() {
   return (
     <header className="sticky top-3 z-30">
-      <LiquidGlassCard
-        glowIntensity="sm"
-        shadowIntensity="none"
-        borderRadius="16px"
-        blurIntensity="md"
-        draggable={false}
-        className="mx-auto w-full max-w-6xl border border-white/70 bg-white/45 px-4 py-3 shadow-[0_8px_8px_rgba(13,19,33,0.14)] sm:px-6"
-      >
+      <div className="mx-auto w-full max-w-6xl rounded-2xl border-2 border-ink/20 bg-white/95 px-4 py-3 sm:px-6">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 sm:gap-6">
             <Link href="/" className="flex items-center gap-2 text-lg font-black tracking-tight">
@@ -31,13 +23,19 @@ export function SiteHeader() {
               <Link href="/create" className="rounded-full px-3 py-2 transition hover:bg-black/5">
                 Create Agent
               </Link>
+              <Link href="/credits" className="rounded-full px-3 py-2 transition hover:bg-black/5">
+                Credits
+              </Link>
+              <Link href="/profile" className="rounded-full px-3 py-2 transition hover:bg-black/5">
+                Profile
+              </Link>
             </nav>
           </div>
           <div className="ml-auto">
             <ConnectButton />
           </div>
         </div>
-      </LiquidGlassCard>
+      </div>
     </header>
   );
 }

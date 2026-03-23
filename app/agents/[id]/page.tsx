@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
+import { cardBackgroundImage } from "@/lib/agent-card-visual";
 import { PublishAgentButton } from "@/components/publish-agent-button";
 import { VerifyStorageButton } from "@/components/verify-storage-button";
 import { getAgentById, listRunsForAgent } from "@/lib/agent-service";
@@ -31,6 +32,14 @@ export default async function AgentDetailPage({
       <section className="glass rounded-3xl p-6 shadow-panel sm:p-8">
         <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
           <div>
+            <div className="mb-3 overflow-hidden rounded-2xl border border-ink/15">
+              <div
+                className="h-40 w-full bg-cover bg-center"
+                style={{
+                  backgroundImage: cardBackgroundImage(agent.cardImageDataUrl, agent.cardGradient),
+                }}
+              />
+            </div>
             <p className="mb-2 inline-block rounded-full bg-ink/5 px-2 py-1 text-xs font-semibold">
               {agent.category}
             </p>
@@ -49,6 +58,9 @@ export default async function AgentDetailPage({
             <span className="font-semibold">Created:</span> {formatDate(agent.createdAt)}
           </p>
           <p className="truncate">
+            <span className="font-semibold">Model:</span> {agent.model}
+          </p>
+          <p className="truncate">
             <span className="font-semibold">Manifest URI:</span> {agent.manifestUri ?? "Not published"}
           </p>
           <p className="truncate">
@@ -65,6 +77,13 @@ export default async function AgentDetailPage({
           <p className="truncate">
             <span className="font-semibold">Knowledge Tx Hash:</span>{" "}
             {agent.knowledgeTxHash ?? "Not available"}
+          </p>
+          <p>
+            <span className="font-semibold">Card Gradient:</span> {agent.cardGradient}
+          </p>
+          <p>
+            <span className="font-semibold">Custom Card Image:</span>{" "}
+            {agent.cardImageDataUrl ? "Uploaded" : "Not uploaded"}
           </p>
           <p>
             <span className="font-semibold">Knowledge file:</span>{" "}

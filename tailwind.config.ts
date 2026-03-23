@@ -52,7 +52,7 @@ const config: Config = {
   			}
   		},
   		boxShadow: {
-  			panel: '0 18px 45px rgba(13,19,33,0.18)'
+  			panel: 'none'
   		},
   		backgroundImage: {
   			haze: 'radial-gradient(circle at 15% 20%, rgba(61,220,151,0.22), transparent 35%), radial-gradient(circle at 85% 10%, rgba(248,180,0,0.23), transparent 40%), linear-gradient(135deg, #f7f4ea 0%, #fffdf8 35%, #eef6ff 100%)'

@@ -6,6 +6,88 @@ import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
 const DATA_DIR = path.join(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "Ajently.sqlite");
 
+const DEMO_AGENTS = [
+  {
+    name: "Viral Hook Architect",
+    description: "Crafts viral hooks, CTAs, and launch copy in seconds.",
+    category: "Marketing",
+    model: "meta-llama/llama-3.2-3b-instruct:free",
+    systemPrompt:
+      "You are a marketing copywriter who creates punchy hooks and CTAs tailored to the user's audience.",
+    pricePerRun: 0.02,
+    cardGradient: "sunset",
+  },
+  {
+    name: "Pull Request Reviewer",
+    description: "Reviews diffs, flags risks, and suggests fixes.",
+    category: "Coding",
+    model: "meta-llama/llama-3.3-70b-instruct:free",
+    systemPrompt:
+      "You are a senior engineer reviewing pull requests for correctness, security, and clarity.",
+    pricePerRun: 0.03,
+    cardGradient: "ember",
+  },
+  {
+    name: "Socratic Tutor",
+    description: "Guides learners with questions, explanations, and quizzes.",
+    category: "Education",
+    model: "google/gemma-3-27b-it:free",
+    systemPrompt:
+      "You are a patient tutor who teaches by asking guiding questions and giving concise explanations.",
+    pricePerRun: 0.02,
+    cardGradient: "aurora",
+  },
+  {
+    name: "Focus Sprint Coach",
+    description: "Turns goals into focused 25-minute sprint plans.",
+    category: "Productivity",
+    model: "mistralai/mistral-small-3.1-24b-instruct:free",
+    systemPrompt:
+      "You are a productivity coach who turns goals into time-boxed action plans and checklists.",
+    pricePerRun: 0.015,
+    cardGradient: "ocean",
+  },
+  {
+    name: "Market Intel Scout",
+    description: "Summarizes competitor moves and trend signals.",
+    category: "Research",
+    model: "deepseek/deepseek-r1:free",
+    systemPrompt:
+      "You are a research analyst summarizing market signals, competitor activity, and key takeaways.",
+    pricePerRun: 0.04,
+    cardGradient: "cosmic",
+  },
+  {
+    name: "Brand Moodboarder",
+    description: "Generates visual style directions and moodboard prompts.",
+    category: "Design",
+    model: "black-forest-labs/flux.2-flex",
+    systemPrompt:
+      "You are a creative director who defines moodboards, palettes, and visual directions for brands.",
+    pricePerRun: 0.05,
+    cardGradient: "sunset",
+  },
+  {
+    name: "Receipt Vision Auditor",
+    description: "Inspects receipts and flags anomalies or missing fields.",
+    category: "Finance",
+    model: "qwen/qwen2.5-vl-32b-instruct:free",
+    systemPrompt:
+      "You analyze receipts and invoices, extracting key fields and spotting inconsistencies.",
+    pricePerRun: 0.03,
+    cardGradient: "ember",
+  },
+  {
+    name: "All-Purpose Concierge",
+    description: "Handles everyday tasks, brainstorming, and quick answers.",
+    category: "General",
+    model: "openrouter/free",
+    systemPrompt: "You are a versatile assistant who handles daily requests with clarity and brevity.",
+    pricePerRun: 0.01,
+    cardGradient: "aurora",
+  },
+] as const;
+
 let sqlJsPromise: Promise<SqlJsStatic> | null = null;
 let databasePromise: Promise<Database> | null = null;
 let writeQueue: Promise<unknown> = Promise.resolve();
@@ -38,12 +120,15 @@ async function initializeSchema(db: Database): Promise<void> {
       name TEXT NOT NULL,
       description TEXT NOT NULL,
       category TEXT NOT NULL,
+      model TEXT NOT NULL DEFAULT 'openrouter/free',
       system_prompt TEXT NOT NULL,
       storage_hash TEXT,
       manifest_uri TEXT,
       manifest_tx_hash TEXT,
       knowledge_uri TEXT,
       knowledge_tx_hash TEXT,
+      card_image_data_url TEXT,
+      card_gradient TEXT NOT NULL DEFAULT 'aurora',
       knowledge_local_path TEXT,
       knowledge_filename TEXT,
       creator_id INTEGER NOT NULL,
@@ -56,6 +141,9 @@ async function initializeSchema(db: Database): Promise<void> {
 
   ensureColumn(db, "agents", "manifest_tx_hash", "TEXT");
   ensureColumn(db, "agents", "knowledge_tx_hash", "TEXT");
+  ensureColumn(db, "agents", "card_image_data_url", "TEXT");
+  ensureColumn(db, "agents", "card_gradient", "TEXT NOT NULL DEFAULT 'aurora'");
+  ensureColumn(db, "agents", "model", "TEXT NOT NULL DEFAULT 'openrouter/free'");
 
   db.run(`
     CREATE TABLE IF NOT EXISTS runs (
@@ -72,6 +160,36 @@ async function initializeSchema(db: Database): Promise<void> {
     );
   `);
 
+  db.run(`
+    CREATE TABLE IF NOT EXISTS topup_orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      rail TEXT NOT NULL,
+      currency TEXT NOT NULL,
+      amount REAL NOT NULL,
+      credits REAL NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      provider_reference TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      completed_at TEXT,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS credit_ledger (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      amount REAL NOT NULL,
+      reference_type TEXT,
+      reference_id INTEGER,
+      note TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(user_id) REFERENCES users(id)
+    );
+  `);
+
   db.run(
     `
       INSERT OR IGNORE INTO users (id, wallet_address, credits)
@@ -79,6 +197,49 @@ async function initializeSchema(db: Database): Promise<void> {
     `,
     [process.env.DEMO_WALLET_ADDRESS ?? "0xDEMO_WALLET_ADDRESS"],
   );
+
+  seedDemoAgents(db);
+}
+
+function seedDemoAgents(db: Database): void {
+  const statement = db.prepare(
+    `
+      INSERT INTO agents (
+        name,
+        description,
+        category,
+        model,
+        system_prompt,
+        creator_id,
+        price_per_run,
+        published,
+        card_gradient
+      )
+      VALUES (?, ?, ?, ?, ?, 1, ?, 1, ?);
+    `,
+  );
+
+  try {
+    for (const agent of DEMO_AGENTS) {
+      const existing = queryOne<{ id: number }>(db, "SELECT id FROM agents WHERE name = ?", [
+        agent.name,
+      ]);
+      if (existing) {
+        continue;
+      }
+      statement.run([
+        agent.name,
+        agent.description,
+        agent.category,
+        agent.model,
+        agent.systemPrompt,
+        agent.pricePerRun,
+        agent.cardGradient,
+      ]);
+    }
+  } finally {
+    statement.free();
+  }
 }
 
 function ensureColumn(

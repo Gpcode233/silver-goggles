@@ -7,10 +7,14 @@ import { RainbowKitProvider, getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { WagmiProvider } from "wagmi";
 import { arbitrum, base, mainnet, optimism, polygon } from "wagmi/chains";
 
-const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "";
+const projectId =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim() ||
+  "00000000000000000000000000000000";
 
-if (!projectId) {
-  throw new Error("Missing NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID environment variable.");
+if (!process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?.trim()) {
+  // Do not fail builds/prerender when env is missing. Wallet connections
+  // will remain disabled until a real WalletConnect project id is configured.
+  console.warn("NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID is missing. Using fallback project id.");
 }
 
 const config = getDefaultConfig({

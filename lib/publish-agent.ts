@@ -39,6 +39,7 @@ export async function publishAgent(agentId: number): Promise<{
     description: agent.description,
     system_prompt: agent.systemPrompt,
     category: agent.category,
+    model: agent.model,
     knowledge_uri: knowledgeUri,
     creator: creator.walletAddress,
     price_per_run: agent.pricePerRun,

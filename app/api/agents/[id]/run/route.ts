@@ -58,6 +58,7 @@ export async function POST(
       systemPrompt: agent.systemPrompt,
       knowledge,
       userInput: payload.data.message,
+      model: agent.model,
     });
   } catch (error) {
     return NextResponse.json(

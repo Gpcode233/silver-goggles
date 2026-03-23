@@ -61,6 +61,7 @@ http://localhost:3000
 
 - `/` marketplace
 - `/create` create + publish form
+- `/credits` credit top-up, ledger, and webhook simulation
 - `/agents/[id]` details + publish status + runs
 - `/agents/[id]/chat` run agent chat
 - `/profile` credits and creator profile
@@ -73,6 +74,10 @@ http://localhost:3000
 - `POST /api/agents/:id/publish`
 - `GET /api/agents/:id/storage` (retrieval proof from 0G storage)
 - `POST /api/agents/:id/run`
+- `GET /api/credits`
+- `POST /api/credits`
+- `POST /api/credits/:id/simulate` (demo webhook reconciliation)
+- `POST /api/webhooks/payments`
 - `GET /api/profile`
 - `GET /api/runs`
 

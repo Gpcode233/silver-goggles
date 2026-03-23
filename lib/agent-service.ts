@@ -1,7 +1,20 @@
 import fs from "node:fs/promises";
+import crypto from "node:crypto";
 
 import { getLastInsertId, queryAll, queryOne, withRead, withWrite } from "@/lib/db";
-import type { AgentRecord, RunRecord, UserRecord } from "@/lib/types";
+import { AGENT_MODELS } from "@/lib/types";
+import type {
+  AgentCardGradient,
+  AgentModel,
+  AgentRecord,
+  CreditLedgerKind,
+  CreditLedgerRecord,
+  RunRecord,
+  TopupOrderRecord,
+  TopupRail,
+  TopupStatus,
+  UserRecord,
+} from "@/lib/types";
 
 export const DEMO_USER_ID = 1;
 
@@ -10,6 +23,7 @@ type AgentRow = {
   name: string;
   description: string;
   category: string;
+  model: AgentModel;
   system_prompt: string;
   price_per_run: number;
   creator_id: number;
@@ -18,6 +32,8 @@ type AgentRow = {
   manifest_tx_hash: string | null;
   knowledge_uri: string | null;
   knowledge_tx_hash: string | null;
+  card_image_data_url: string | null;
+  card_gradient: AgentCardGradient;
   knowledge_local_path: string | null;
   knowledge_filename: string | null;
   published: number;
@@ -41,12 +57,39 @@ type UserRow = {
   credits: number;
 };
 
+type CreditLedgerRow = {
+  id: number;
+  user_id: number;
+  kind: CreditLedgerKind;
+  amount: number;
+  reference_type: string | null;
+  reference_id: number | null;
+  note: string | null;
+  created_at: string;
+};
+
+type TopupOrderRow = {
+  id: number;
+  user_id: number;
+  rail: TopupRail;
+  currency: string;
+  amount: number;
+  credits: number;
+  status: TopupStatus;
+  provider_reference: string;
+  created_at: string;
+  completed_at: string | null;
+};
+
 function mapAgent(row: AgentRow): AgentRecord {
+  const model = AGENT_MODELS.includes(row.model) ? row.model : AGENT_MODELS[0];
+
   return {
     id: row.id,
     name: row.name,
     description: row.description,
     category: row.category,
+    model,
     systemPrompt: row.system_prompt,
     pricePerRun: Number(row.price_per_run),
     creatorId: row.creator_id,
@@ -55,6 +98,8 @@ function mapAgent(row: AgentRow): AgentRecord {
     manifestTxHash: row.manifest_tx_hash,
     knowledgeUri: row.knowledge_uri,
     knowledgeTxHash: row.knowledge_tx_hash,
+    cardImageDataUrl: row.card_image_data_url,
+    cardGradient: row.card_gradient,
     knowledgeLocalPath: row.knowledge_local_path,
     knowledgeFilename: row.knowledge_filename,
     published: row.published === 1,
@@ -80,6 +125,34 @@ function mapUser(row: UserRow): UserRecord {
     id: row.id,
     walletAddress: row.wallet_address,
     credits: Number(row.credits),
+  };
+}
+
+function mapCreditLedger(row: CreditLedgerRow): CreditLedgerRecord {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    kind: row.kind,
+    amount: Number(row.amount),
+    referenceType: row.reference_type,
+    referenceId: row.reference_id,
+    note: row.note,
+    createdAt: row.created_at,
+  };
+}
+
+function mapTopupOrder(row: TopupOrderRow): TopupOrderRecord {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    rail: row.rail,
+    currency: row.currency,
+    amount: Number(row.amount),
+    credits: Number(row.credits),
+    status: row.status,
+    providerReference: row.provider_reference,
+    createdAt: row.created_at,
+    completedAt: row.completed_at,
   };
 }
 
@@ -149,8 +222,11 @@ export async function createAgent(input: {
   name: string;
   description: string;
   category: string;
+  model: AgentModel;
   systemPrompt: string;
   pricePerRun: number;
+  cardImageDataUrl: string | null;
+  cardGradient: AgentCardGradient;
   creatorId?: number;
 }): Promise<AgentRecord> {
   return withWrite((db) => {
@@ -160,17 +236,23 @@ export async function createAgent(input: {
           name,
           description,
           category,
+          model,
           system_prompt,
+          card_image_data_url,
+          card_gradient,
           creator_id,
           price_per_run
         )
-        VALUES (?, ?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
       `,
       [
         input.name,
         input.description,
         input.category,
+        input.model,
         input.systemPrompt,
+        input.cardImageDataUrl,
+        input.cardGradient,
         input.creatorId ?? DEMO_USER_ID,
         input.pricePerRun,
       ],
@@ -316,6 +398,14 @@ export async function runAgentForUser(params: {
     );
 
     const runId = getLastInsertId(db);
+    db.run(
+      `
+        INSERT INTO credit_ledger (user_id, kind, amount, reference_type, reference_id, note)
+        VALUES (?, 'run_debit', ?, 'run', ?, ?);
+      `,
+      [params.userId, -price, runId, `Agent ${params.agentId} run`],
+    );
+
     const runRow = queryOne<RunRow>(db, "SELECT * FROM runs WHERE id = ?", [runId]);
     const userRow = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [params.userId]);
 
@@ -324,6 +414,159 @@ export async function runAgentForUser(params: {
     }
 
     return { run: mapRun(runRow), user: mapUser(userRow) };
+  });
+}
+
+export async function listCreditLedgerForUser(userId: number, limit = 50): Promise<CreditLedgerRecord[]> {
+  return withRead((db) => {
+    const rows = queryAll<CreditLedgerRow>(
+      db,
+      `
+        SELECT *
+        FROM credit_ledger
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?;
+      `,
+      [userId, limit],
+    );
+    return rows.map(mapCreditLedger);
+  });
+}
+
+export async function listTopupOrdersForUser(userId: number, limit = 50): Promise<TopupOrderRecord[]> {
+  return withRead((db) => {
+    const rows = queryAll<TopupOrderRow>(
+      db,
+      `
+        SELECT *
+        FROM topup_orders
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?;
+      `,
+      [userId, limit],
+    );
+    return rows.map(mapTopupOrder);
+  });
+}
+
+export async function createTopupOrder(params: {
+  userId: number;
+  rail: TopupRail;
+  currency: string;
+  amount: number;
+}): Promise<TopupOrderRecord> {
+  return withWrite((db) => {
+    const providerReference = `topup_${crypto.randomUUID()}`;
+    db.run(
+      `
+        INSERT INTO topup_orders (user_id, rail, currency, amount, credits, status, provider_reference)
+        VALUES (?, ?, ?, ?, ?, 'pending', ?);
+      `,
+      [params.userId, params.rail, params.currency, params.amount, params.amount, providerReference],
+    );
+
+    const id = getLastInsertId(db);
+    const row = queryOne<TopupOrderRow>(db, "SELECT * FROM topup_orders WHERE id = ?", [id]);
+    if (!row) {
+      throw new Error("Failed to create top-up order");
+    }
+    return mapTopupOrder(row);
+  });
+}
+
+export async function getTopupOrderById(id: number): Promise<TopupOrderRecord | null> {
+  return withRead((db) => {
+    const row = queryOne<TopupOrderRow>(db, "SELECT * FROM topup_orders WHERE id = ?", [id]);
+    return row ? mapTopupOrder(row) : null;
+  });
+}
+
+export async function reconcileTopupOrder(params: {
+  providerReference: string;
+  status: "completed" | "failed";
+  note?: string;
+}): Promise<TopupOrderRecord> {
+  return withWrite((db) => {
+    const order = queryOne<TopupOrderRow>(
+      db,
+      "SELECT * FROM topup_orders WHERE provider_reference = ?",
+      [params.providerReference],
+    );
+    if (!order) {
+      throw new Error("Top-up order not found");
+    }
+
+    if (order.status === "completed" || order.status === "failed") {
+      return mapTopupOrder(order);
+    }
+
+    if (params.status === "completed") {
+      db.run("UPDATE users SET credits = credits + ? WHERE id = ?", [order.credits, order.user_id]);
+      db.run(
+        `
+          INSERT INTO credit_ledger (user_id, kind, amount, reference_type, reference_id, note)
+          VALUES (?, 'topup', ?, 'topup_order', ?, ?);
+        `,
+        [order.user_id, order.credits, order.id, params.note ?? `${order.rail} top-up`],
+      );
+      db.run(
+        `
+          UPDATE topup_orders
+          SET status = 'completed',
+              completed_at = CURRENT_TIMESTAMP
+          WHERE id = ?;
+        `,
+        [order.id],
+      );
+    } else {
+      db.run(
+        `
+          UPDATE topup_orders
+          SET status = 'failed',
+              completed_at = CURRENT_TIMESTAMP
+          WHERE id = ?;
+        `,
+        [order.id],
+      );
+    }
+
+    const updated = queryOne<TopupOrderRow>(db, "SELECT * FROM topup_orders WHERE id = ?", [order.id]);
+    if (!updated) {
+      throw new Error("Top-up order missing after reconciliation");
+    }
+    return mapTopupOrder(updated);
+  });
+}
+
+export async function getCreditStats(userId: number): Promise<{
+  remaining: number;
+  used: number;
+  toppedUp: number;
+}> {
+  return withRead((db) => {
+    const user = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [userId]);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    const usedRow = queryOne<{ total: number | null }>(
+      db,
+      "SELECT SUM(cost) AS total FROM runs WHERE user_id = ?",
+      [userId],
+    );
+    const toppedUpRow = queryOne<{ total: number | null }>(
+      db,
+      "SELECT SUM(amount) AS total FROM credit_ledger WHERE user_id = ? AND kind = 'topup'",
+      [userId],
+    );
+
+    return {
+      remaining: Number(user.credits),
+      used: Number(usedRow?.total ?? 0),
+      toppedUp: Number(toppedUpRow?.total ?? 0),
+    };
   });
 }
 

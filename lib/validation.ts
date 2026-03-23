@@ -1,13 +1,15 @@
 import { z } from "zod";
 
-import { AGENT_CATEGORIES } from "@/lib/types";
+import { AGENT_CARD_GRADIENTS, AGENT_CATEGORIES, AGENT_MODELS } from "@/lib/types";
 
 export const createAgentSchema = z.object({
   name: z.string().trim().min(3).max(80),
   description: z.string().trim().min(10).max(400),
   category: z.enum(AGENT_CATEGORIES),
+  model: z.enum(AGENT_MODELS).default("openrouter/free"),
   systemPrompt: z.string().trim().min(10).max(5000),
   pricePerRun: z.coerce.number().min(0).max(1000),
+  cardGradient: z.enum(AGENT_CARD_GRADIENTS).default("aurora"),
   publishNow: z.coerce.boolean().default(true),
 });
 
@@ -19,4 +21,10 @@ export const listAgentsSchema = z.object({
   search: z.string().optional(),
   category: z.string().optional(),
   includeDrafts: z.coerce.boolean().default(false),
+});
+
+export const createTopupSchema = z.object({
+  rail: z.enum(["fiat", "stablecoin"]),
+  currency: z.string().trim().toUpperCase().min(2).max(12),
+  amount: z.coerce.number().min(1).max(10000),
 });

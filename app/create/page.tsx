@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { AGENT_CATEGORIES } from "@/lib/types";
+import { cardBackgroundImage } from "@/lib/agent-card-visual";
+import { AGENT_CARD_GRADIENTS, AGENT_CATEGORIES, AGENT_MODEL_BADGES, AGENT_MODELS } from "@/lib/types";
 
 type CreateResponse = {
   agent?: { id: number };
@@ -17,6 +18,16 @@ export default function CreateAgentPage() {
   const [submitting, setSubmitting] = useState(false);
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [cardGradient, setCardGradient] = useState<(typeof AGENT_CARD_GRADIENTS)[number]>("aurora");
+  const [cardImagePreviewUrl, setCardImagePreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (cardImagePreviewUrl) {
+        URL.revokeObjectURL(cardImagePreviewUrl);
+      }
+    };
+  }, [cardImagePreviewUrl]);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,6 +59,11 @@ export default function CreateAgentPage() {
           ? "Agent created and published."
           : "Agent created as draft. Publish it from the agent details page.",
       );
+      if (cardImagePreviewUrl) {
+        URL.revokeObjectURL(cardImagePreviewUrl);
+      }
+      setCardImagePreviewUrl(null);
+      setCardGradient("aurora");
       formElement.reset();
       router.push(`/agents/${created.id}`);
       router.refresh();
@@ -107,7 +123,7 @@ export default function CreateAgentPage() {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <label className="text-sm font-semibold" htmlFor="category">
                 Category
@@ -140,6 +156,45 @@ export default function CreateAgentPage() {
                 className="w-full rounded-xl border border-ink/20 px-3 py-2 outline-none ring-flare transition focus:ring-2"
               />
             </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold" htmlFor="card_gradient">
+                Card Gradient (default)
+              </label>
+              <select
+                id="card_gradient"
+                name="card_gradient"
+                onChange={(event) =>
+                  setCardGradient(event.currentTarget.value as (typeof AGENT_CARD_GRADIENTS)[number])
+                }
+                className="w-full rounded-xl border border-ink/20 px-3 py-2 outline-none ring-flare transition focus:ring-2"
+                defaultValue="aurora"
+              >
+                {AGENT_CARD_GRADIENTS.map((gradient) => (
+                  <option key={gradient} value={gradient}>
+                    {gradient.charAt(0).toUpperCase() + gradient.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-semibold" htmlFor="model">
+                Model
+              </label>
+              <select
+                id="model"
+                name="model"
+                className="w-full rounded-xl border border-ink/20 px-3 py-2 outline-none ring-flare transition focus:ring-2"
+                defaultValue="openrouter/free"
+              >
+                {AGENT_MODELS.map((model) => (
+                  <option key={model} value={model}>
+                    {model} - {AGENT_MODEL_BADGES[model]}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -156,6 +211,50 @@ export default function CreateAgentPage() {
               className="w-full rounded-xl border border-ink/20 px-3 py-2 outline-none ring-flare transition focus:ring-2"
               placeholder="You are a Gen-Z copywriter..."
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold" htmlFor="card_image">
+              Agent Profile Image (optional)
+            </label>
+            <input
+              id="card_image"
+              name="card_image"
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const file = event.currentTarget.files?.[0];
+                if (cardImagePreviewUrl) {
+                  URL.revokeObjectURL(cardImagePreviewUrl);
+                }
+                if (!file) {
+                  setCardImagePreviewUrl(null);
+                  return;
+                }
+                setCardImagePreviewUrl(URL.createObjectURL(file));
+              }}
+              className="w-full rounded-xl border border-ink/20 px-3 py-2 text-sm"
+            />
+            <p className="muted text-xs">
+              Uploading an image sets the agent profile picture. Otherwise, selected gradient is used.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-semibold">Card Preview</label>
+            <div className="overflow-hidden rounded-2xl border-2 border-ink/25 bg-white">
+              <div
+                className="h-40 w-full bg-cover bg-center"
+                style={{
+                  backgroundImage: cardBackgroundImage(cardImagePreviewUrl, cardGradient),
+                }}
+              />
+              <div className="border-t border-ink/15 px-3 py-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.08em] text-ink/70">
+                  {cardImagePreviewUrl ? "Image profile preview" : `${cardGradient} gradient preview`}
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">

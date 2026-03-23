@@ -57,7 +57,12 @@ async function resolveService(): Promise<{
   };
 }
 
-function runMockInference(systemPrompt: string, knowledge: string, userInput: string): ComputeResult {
+function runMockInference(
+  systemPrompt: string,
+  knowledge: string,
+  userInput: string,
+  requestedModel?: string,
+): ComputeResult {
   const context = [systemPrompt, knowledge].filter(Boolean).join("\n\n");
   const trimmedContext = context.slice(0, 240);
 
@@ -65,11 +70,12 @@ function runMockInference(systemPrompt: string, knowledge: string, userInput: st
     output: [
       "Mock 0G Compute response",
       `User request: ${userInput}`,
+      requestedModel ? `Requested model: ${requestedModel}` : "Requested model: default",
       trimmedContext ? `Context used: ${trimmedContext}` : "Context used: none",
       "Switch ZERO_G_COMPUTE_MODE=real to use decentralized inference.",
     ].join("\n"),
     mode: "mock",
-    model: "mock/qwen-2.5-7b-instruct",
+    model: requestedModel ?? "mock/qwen-2.5-7b-instruct",
     providerAddress: "mock-provider",
   };
 }
@@ -78,12 +84,14 @@ export async function runInference(params: {
   systemPrompt: string;
   knowledge: string;
   userInput: string;
+  model?: string;
 }): Promise<ComputeResult> {
   if (!realComputeEnabled()) {
-    return runMockInference(params.systemPrompt, params.knowledge, params.userInput);
+    return runMockInference(params.systemPrompt, params.knowledge, params.userInput, params.model);
   }
 
-  const { providerAddress, endpoint, model, broker } = await resolveService();
+  const { providerAddress, endpoint, model: serviceModel, broker } = await resolveService();
+  const selectedModel = params.model?.trim() || serviceModel;
   const requestHeaders = await broker.inference.getRequestHeaders(providerAddress, params.userInput);
 
   const response = await fetch(`${endpoint.replace(/\/$/, "")}/chat/completions`, {
@@ -93,7 +101,7 @@ export async function runInference(params: {
       ...requestHeaders,
     },
     body: JSON.stringify({
-      model,
+      model: selectedModel,
       messages: [
         {
           role: "system",
@@ -123,7 +131,7 @@ export async function runInference(params: {
   return {
     output,
     mode: "real",
-    model,
+    model: selectedModel,
     providerAddress,
   };
 }

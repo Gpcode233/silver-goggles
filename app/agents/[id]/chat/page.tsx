@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ChatClient } from "@/components/chat-client";
@@ -25,13 +24,7 @@ export default async function AgentChatPage({
   }
 
   return (
-    <main className="space-y-4">
-      <Link
-        href={`/agents/${agent.id}`}
-        className="inline-flex rounded-full border border-ink/20 px-3 py-1 text-sm font-semibold hover:bg-ink/5"
-      >
-        Back to agent
-      </Link>
+    <main>
       <ChatClient agentId={agent.id} agentName={agent.name} initialCredits={user.credits} />
     </main>
   );

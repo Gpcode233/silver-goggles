@@ -100,6 +100,46 @@ const DEMO_AGENTS = [
     pricePerRun: 0.01,
     cardGradient: "aurora",
   },
+  {
+    name: "Landing Page Critic",
+    description: "Audits landing pages and suggests conversion-focused fixes.",
+    category: "Marketing",
+    model: "mistralai/mistral-small-3.1-24b-instruct:free",
+    systemPrompt:
+      "You are a conversion copy and UX expert. Review landing pages and provide prioritized fixes.",
+    pricePerRun: 0.025,
+    cardGradient: "ember",
+  },
+  {
+    name: "SQL Query Fixer",
+    description: "Debugs SQL errors and rewrites inefficient queries.",
+    category: "Coding",
+    model: "meta-llama/llama-3.3-70b-instruct:free",
+    systemPrompt:
+      "You are a SQL performance specialist. Fix broken SQL and suggest faster alternatives.",
+    pricePerRun: 0.03,
+    cardGradient: "ocean",
+  },
+  {
+    name: "Exam Revision Planner",
+    description: "Builds revision schedules and practice drills for any subject.",
+    category: "Education",
+    model: "google/gemma-3-27b-it:free",
+    systemPrompt:
+      "You are a study planner. Break exam prep into realistic daily tasks with recall practice.",
+    pricePerRun: 0.018,
+    cardGradient: "aurora",
+  },
+  {
+    name: "Founder Pitch Polisher",
+    description: "Turns rough startup ideas into clear investor-ready pitches.",
+    category: "Business",
+    model: "deepseek/deepseek-r1-0528:free",
+    systemPrompt:
+      "You are a startup advisor helping founders improve story, traction framing, and pitch clarity.",
+    pricePerRun: 0.035,
+    cardGradient: "cosmic",
+  },
 ] as const;
 
 let sqlJsPromise: Promise<SqlJsStatic> | null = null;
@@ -242,12 +282,15 @@ function seedDemoAgents(db: Database): void {
         category,
         model,
         system_prompt,
+        storage_hash,
+        manifest_uri,
+        manifest_tx_hash,
         creator_id,
         price_per_run,
         published,
         card_gradient
       )
-      VALUES (?, ?, ?, ?, ?, 1, ?, 0, ?);
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 1, ?);
     `,
   );
 
@@ -257,6 +300,23 @@ function seedDemoAgents(db: Database): void {
         agent.name,
       ]);
       if (existing) {
+        // Keep seeded demo agents visible in marketplace even if storage publish is not configured yet.
+        db.run(
+          `
+            UPDATE agents
+            SET published = 1,
+                storage_hash = COALESCE(storage_hash, ?),
+                manifest_uri = COALESCE(manifest_uri, ?),
+                manifest_tx_hash = COALESCE(manifest_tx_hash, ?)
+            WHERE id = ?;
+          `,
+          [
+            `demo-${agent.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-hash`,
+            `0g://demo-${agent.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-manifest`,
+            `demo-${agent.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-tx`,
+            existing.id,
+          ],
+        );
         continue;
       }
       statement.run([
@@ -265,6 +325,9 @@ function seedDemoAgents(db: Database): void {
         agent.category,
         agent.model,
         agent.systemPrompt,
+        `demo-${agent.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-hash`,
+        `0g://demo-${agent.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-manifest`,
+        `demo-${agent.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-tx`,
         agent.pricePerRun,
         agent.cardGradient,
       ]);

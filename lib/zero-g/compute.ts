@@ -16,6 +16,10 @@ type OpenRouterPayload = {
   };
 };
 
+type OpenRouterMessageContent = NonNullable<
+  NonNullable<NonNullable<OpenRouterPayload["choices"]>[number]["message"]>["content"]
+>;
+
 type ComputeServiceSummary = {
   provider: string;
   teeSignerAcknowledged?: boolean;
@@ -68,11 +72,7 @@ function resolveOpenRouterModel(requestedModel?: string): string {
   return model;
 }
 
-function extractMessageContent(content: OpenRouterPayload["choices"] extends Array<infer Choice>
-  ? Choice extends { message?: { content?: infer Content } }
-    ? Content
-    : never
-  : never): string {
+function extractMessageContent(content: OpenRouterMessageContent | null | undefined): string {
   if (typeof content === "string") {
     return content.trim();
   }

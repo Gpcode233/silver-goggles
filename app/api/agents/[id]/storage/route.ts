@@ -32,6 +32,12 @@ export async function GET(
   if (!agent.manifestUri || !agent.storageHash) {
     return NextResponse.json({ error: "Agent has not been published to storage" }, { status: 400 });
   }
+  if (!agent.manifestTxHash) {
+    return NextResponse.json(
+      { error: "Agent is missing 0G manifest transaction proof" },
+      { status: 400 },
+    );
+  }
 
   try {
     const manifestRaw = await downloadText(agent.manifestUri);
@@ -53,7 +59,7 @@ export async function GET(
     } | null = null;
 
     if (agent.knowledgeUri) {
-      const knowledgeRaw = await downloadText(agent.knowledgeUri, agent.knowledgeLocalPath);
+      const knowledgeRaw = await downloadText(agent.knowledgeUri);
       knowledgeProof = {
         uri: agent.knowledgeUri,
         rootHash: rootHashFromUri(agent.knowledgeUri),

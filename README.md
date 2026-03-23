@@ -5,7 +5,7 @@ Ajently is an "App Store for AI agents" where creators can publish agents and us
 ## MVP Features
 
 - Create Agent: name, description, category, system prompt, price, optional knowledge file.
-- Publish Agent: generates manifest and uploads manifest/knowledge to 0G Storage (or mock mode).
+- Publish Agent: generates manifest and uploads manifest/knowledge to 0G Storage with transaction proof.
 - Storage Proofs: publish responses include `rootHash` + `transactionHash` and retrieval can be verified per agent.
 - Explore Agents: search + category filter marketplace.
 - Run Agent: chat UI with credits deduction and run logs.
@@ -48,9 +48,9 @@ http://localhost:3000
 
 ## 0G Modes
 
-- Default is mock mode:
-  - `ZERO_G_STORAGE_MODE=mock`
-  - `ZERO_G_COMPUTE_MODE=mock`
+- Storage is strict by default for publish flows:
+  - `ZERO_G_STORAGE_MODE=real`
+  - `ZERO_G_STORAGE_FALLBACK_TO_MOCK=false`
 - OpenRouter fallback:
   - Set `OPENROUTER_API_KEY` to get real chat responses even when `ZERO_G_COMPUTE_MODE` is not `real`.
   - Optional: set `OPENROUTER_DEFAULT_MODEL` for `openrouter/free` or image-only model selections.
@@ -58,11 +58,31 @@ http://localhost:3000
   - Set `NEXT_PUBLIC_TOPUP_TREASURY_ADDRESS` so wallet transfers can be verified and credited in-app.
   - Optional: set `TOPUP_TREASURY_ADDRESS` for server-only override.
 - To use real 0G:
-  - Set both modes to `real`
+  - Set `ZERO_G_STORAGE_MODE=real`
+  - Set `ZERO_G_COMPUTE_MODE=real` (optional if only storage is required)
   - Set `ZERO_G_PRIVATE_KEY`
   - Keep `ZERO_G_EVM_RPC` and `ZERO_G_STORAGE_INDEXER_RPC` configured
-  - Optional: keep `ZERO_G_STORAGE_FALLBACK_TO_MOCK=true` so agent creation can still complete if a real upload fails
+  - Keep `ZERO_G_STORAGE_FALLBACK_TO_MOCK=false` for judge-facing deployments
   - Optionally set `ZERO_G_COMPUTE_PROVIDER`
+
+## 0G Storage Compliance (Hackathon)
+
+This project is implemented to satisfy the 0G Storage requirement with both upload and retrieval proof:
+
+1. Upload proof on publish:
+   - Every marketplace-visible agent must have `manifest_uri`, `storage_hash`, and `manifest_tx_hash`.
+   - API responses return `uploadProof.manifest.rootHash` + `uploadProof.manifest.transactionHash`.
+2. Retrieval proof:
+   - `GET /api/agents/:id/storage` downloads manifest and knowledge from 0G using the stored URI/root hash.
+   - The response includes retrieved byte sizes, root hashes, tx hashes, and hash-match checks.
+3. Marketplace gating:
+   - Only agents with full storage proof are listed on `/`.
+4. No silent mock fallback for publish:
+   - Publish fails if real 0G storage is not configured or no tx proof is returned.
+
+Official references:
+- 0G docs home: https://docs.0g.ai/
+- Storage overview and SDK docs: https://docs.0g.ai/build-with-0g/storage
 
 ## Key Routes
 
@@ -77,6 +97,7 @@ http://localhost:3000
 
 - `GET /api/agents`
 - `POST /api/agents`
+- `POST /api/agents/sync-storage` (publish all agents missing 0G storage proof)
 - `GET /api/agents/:id`
 - `POST /api/agents/:id/publish`
 - `GET /api/agents/:id/storage` (retrieval proof from 0G storage)

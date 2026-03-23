@@ -64,7 +64,7 @@ export function VerifyStorageButton({ agentId }: { agentId: number }) {
           </p>
           <p className="truncate">
             <span className="font-semibold">Manifest tx:</span>{" "}
-            {proof.manifest.transactionHash ?? "mock mode (no tx hash)"}
+            {proof.manifest.transactionHash ?? "missing"}
           </p>
           <p>
             <span className="font-semibold">Manifest bytes:</span> {proof.manifest.bytes}
@@ -80,7 +80,7 @@ export function VerifyStorageButton({ agentId }: { agentId: number }) {
               </p>
               <p className="truncate">
                 <span className="font-semibold">Knowledge tx:</span>{" "}
-                {proof.knowledge.transactionHash ?? "mock mode (no tx hash)"}
+                {proof.knowledge.transactionHash ?? "missing"}
               </p>
               <p>
                 <span className="font-semibold">Knowledge bytes:</span> {proof.knowledge.bytes}

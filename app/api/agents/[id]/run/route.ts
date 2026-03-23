@@ -39,7 +39,12 @@ export async function POST(
   let knowledge = "";
   try {
     if (agent.knowledgeUri) {
-      knowledge = await downloadText(agent.knowledgeUri, agent.knowledgeLocalPath);
+      knowledge = await downloadText(agent.knowledgeUri);
+    } else if (agent.published && agent.knowledgeLocalPath) {
+      return NextResponse.json(
+        { error: "Published agent is missing a 0G knowledge URI" },
+        { status: 500 },
+      );
     } else if (agent.knowledgeLocalPath) {
       knowledge = await readKnowledgeFromLocal(agent);
     }

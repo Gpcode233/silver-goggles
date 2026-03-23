@@ -171,6 +171,13 @@ async function initializeSchema(db: Database): Promise<void> {
   }
 
   db.run(`
+    UPDATE agents
+    SET published = 0
+    WHERE published = 1
+      AND (storage_hash IS NULL OR manifest_uri IS NULL OR manifest_tx_hash IS NULL);
+  `);
+
+  db.run(`
     CREATE TABLE IF NOT EXISTS runs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -240,7 +247,7 @@ function seedDemoAgents(db: Database): void {
         published,
         card_gradient
       )
-      VALUES (?, ?, ?, ?, ?, 1, ?, 1, ?);
+      VALUES (?, ?, ?, ?, ?, 1, ?, 0, ?);
     `,
   );
 

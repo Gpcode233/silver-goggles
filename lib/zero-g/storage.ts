@@ -11,6 +11,10 @@ export type UploadResult = {
   mode: "real" | "mock";
 };
 
+type UploadOptions = {
+  requireReal?: boolean;
+};
+
 const MOCK_STORAGE_DIR = resolveDataPath("mock-storage");
 const DOWNLOAD_DIR = resolveDataPath("downloads");
 
@@ -50,10 +54,35 @@ function realStorageEnabled(): boolean {
   );
 }
 
+function realStorageConfigIssues(): string[] {
+  const issues: string[] = [];
+  if (process.env.ZERO_G_STORAGE_MODE !== "real") {
+    issues.push("ZERO_G_STORAGE_MODE must be set to 'real'");
+  }
+  if (!process.env.ZERO_G_STORAGE_INDEXER_RPC) {
+    issues.push("ZERO_G_STORAGE_INDEXER_RPC is missing");
+  }
+  if (!process.env.ZERO_G_EVM_RPC) {
+    issues.push("ZERO_G_EVM_RPC is missing");
+  }
+  if (!process.env.ZERO_G_PRIVATE_KEY) {
+    issues.push("ZERO_G_PRIVATE_KEY is missing");
+  }
+  return issues;
+}
+
+export function getRealStorageConfigError(): string | null {
+  const issues = realStorageConfigIssues();
+  if (issues.length === 0) {
+    return null;
+  }
+  return `Real 0G Storage is required but not configured: ${issues.join("; ")}`;
+}
+
 function allowMockFallback(): boolean {
   const value = process.env.ZERO_G_STORAGE_FALLBACK_TO_MOCK;
   if (value === undefined) {
-    return true;
+    return false;
   }
   return value === "true";
 }
@@ -111,14 +140,24 @@ async function uploadBytesToRealStorage(data: Uint8Array): Promise<UploadResult>
   };
 }
 
-export async function uploadManifest(manifest: object): Promise<UploadResult> {
+export async function uploadManifest(
+  manifest: object,
+  options: UploadOptions = {},
+): Promise<UploadResult> {
+  const requireReal = options.requireReal ?? false;
   const body = Buffer.from(JSON.stringify(manifest, null, 2), "utf-8");
+  if (requireReal && !realStorageEnabled()) {
+    throw new Error(getRealStorageConfigError() ?? "Real 0G Storage is required but unavailable");
+  }
   if (!realStorageEnabled()) {
     return uploadBytesToMockStorage(body);
   }
   try {
     return await uploadBytesToRealStorage(body);
   } catch (error) {
+    if (requireReal) {
+      throw error;
+    }
     if (!allowMockFallback()) {
       throw error;
     }
@@ -130,13 +169,23 @@ export async function uploadManifest(manifest: object): Promise<UploadResult> {
   }
 }
 
-export async function uploadKnowledge(payload: Uint8Array): Promise<UploadResult> {
+export async function uploadKnowledge(
+  payload: Uint8Array,
+  options: UploadOptions = {},
+): Promise<UploadResult> {
+  const requireReal = options.requireReal ?? false;
+  if (requireReal && !realStorageEnabled()) {
+    throw new Error(getRealStorageConfigError() ?? "Real 0G Storage is required but unavailable");
+  }
   if (!realStorageEnabled()) {
     return uploadBytesToMockStorage(payload);
   }
   try {
     return await uploadBytesToRealStorage(payload);
   } catch (error) {
+    if (requireReal) {
+      throw error;
+    }
     if (!allowMockFallback()) {
       throw error;
     }

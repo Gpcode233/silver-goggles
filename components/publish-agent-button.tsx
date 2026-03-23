@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 type PublishResponse = {
   error?: string;
-  storageMode?: "real" | "mock";
+  storageMode?: "real";
   uploadProof?: {
     manifest: {
       rootHash: string;
@@ -42,7 +42,7 @@ export function PublishAgentButton({ agentId }: { agentId: number }) {
 
     const manifestProof = payload.uploadProof?.manifest;
     if (manifestProof) {
-      const txLabel = manifestProof.transactionHash ?? "mock mode (no tx hash)";
+      const txLabel = manifestProof.transactionHash ?? "missing tx hash";
       setStatus(`Manifest: ${manifestProof.rootHash} | Tx: ${txLabel}`);
     } else {
       setStatus("Agent published successfully.");

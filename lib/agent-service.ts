@@ -102,7 +102,11 @@ function mapAgent(row: AgentRow): AgentRecord {
     cardGradient: row.card_gradient,
     knowledgeLocalPath: row.knowledge_local_path,
     knowledgeFilename: row.knowledge_filename,
-    published: row.published === 1,
+    published:
+      row.published === 1 &&
+      Boolean(row.storage_hash) &&
+      Boolean(row.manifest_uri) &&
+      Boolean(row.manifest_tx_hash),
     createdAt: row.created_at,
   };
 }
@@ -165,7 +169,9 @@ export async function listAgents(options: {
   const params: Array<number | string | Uint8Array | null> = [];
 
   if (!options.includeDrafts) {
-    where.push("published = 1");
+    where.push(
+      "published = 1 AND storage_hash IS NOT NULL AND manifest_uri IS NOT NULL AND manifest_tx_hash IS NOT NULL",
+    );
   }
 
   if (options.search?.trim()) {

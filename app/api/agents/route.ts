@@ -116,11 +116,14 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        agent,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to publish agent to real 0G Storage",
         published: false,
-        publishError: error instanceof Error ? error.message : "Failed to publish",
+        agentId: agent.id,
       },
-      { status: 201 },
+      { status: 502 },
     );
   }
 }

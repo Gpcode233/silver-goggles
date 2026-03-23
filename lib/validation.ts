@@ -24,8 +24,8 @@ export const listAgentsSchema = z.object({
 });
 
 export const createTopupSchema = z.object({
-  rail: z.enum(["fiat", "stablecoin"]),
-  currency: z.string().trim().toUpperCase().min(2).max(12),
+  rail: z.enum(["fiat"]),
+  currency: z.literal("NGN"),
   amount: z.coerce.number().min(1).max(10000),
 });
 

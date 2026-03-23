@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createPublicClient, formatEther, http, isAddress, isAddressEqual, parseEther, type Hex } from "viem";
+import { createPublicClient, formatEther, http, isAddress, isAddressEqual, parseEther } from "viem";
 
 import { completeOnchainTopup, DEMO_USER_ID } from "@/lib/agent-service";
 import { createOnchainTopupSchema } from "@/lib/validation";
@@ -50,10 +50,11 @@ export async function POST(request: Request) {
     const client = createPublicClient({
       transport: http(rpcUrl),
     });
+    const txHash = parsed.data.txHash as `0x${string}`;
 
     const [tx, receipt] = await Promise.all([
-      client.getTransaction({ hash: parsed.data.txHash as Hex }),
-      client.getTransactionReceipt({ hash: parsed.data.txHash as Hex }),
+      client.getTransaction({ hash: txHash }),
+      client.getTransactionReceipt({ hash: txHash }),
     ]);
 
     if (!tx.to || !isAddressEqual(tx.to, treasuryAddress)) {

@@ -1,6 +1,6 @@
 # Ajently (MVP v1)
 
-Ajently is an "App Store for AI agents" where creators can publish agents and users can run them through decentralized 0G infrastructure.
+Ajently is an "App Store for AI agents" where creators can publish agents, users can run them through decentralized 0G infrastructure, and buyers can top up credits through Interswitch Web Checkout.
 
 ## MVP Features
 
@@ -10,12 +10,14 @@ Ajently is an "App Store for AI agents" where creators can publish agents and us
 - Explore Agents: search + category filter marketplace.
 - Run Agent: chat UI with credits deduction and run logs.
 - Credits Profile: shows wallet + credits + created agents.
+- Interswitch Top-Up: buy Ajently credits in NGN using cards, bank transfer, USSD, and other supported payment methods.
 
 ## Stack
 
 - Next.js (App Router) + TypeScript
 - Tailwind CSS
 - SQLite (via `sql.js`, persisted at `data/Ajently.sqlite`)
+- Interswitch Web Checkout + server-side transaction requery
 - 0G integrations:
   - Storage: `@0gfoundation/0g-ts-sdk`
   - Compute: `@0glabs/0g-serving-broker`
@@ -57,6 +59,12 @@ http://localhost:3000
 - Onchain credit top-up:
   - Set `NEXT_PUBLIC_TOPUP_TREASURY_ADDRESS` so wallet transfers can be verified and credited in-app.
   - Optional: set `TOPUP_TREASURY_ADDRESS` for server-only override.
+- Interswitch fiat credit top-up:
+  - Set `INTERSWITCH_ENV=sandbox`
+  - Set `INTERSWITCH_MERCHANT_CODE`
+  - Set `INTERSWITCH_PAY_ITEM_ID`
+  - Optional: set `INTERSWITCH_DEFAULT_CUSTOMER_EMAIL`
+  - Optional: set `INTERSWITCH_WEBHOOK_SECRET` if you enable Interswitch webhooks
 - To use real 0G:
   - Set `ZERO_G_STORAGE_MODE=real`
   - Set `ZERO_G_COMPUTE_MODE=real` (optional if only storage is required)
@@ -89,6 +97,7 @@ Official references:
 - `/` marketplace
 - `/create` create + publish form
 - `/credits` credit top-up, ledger, and webhook simulation
+- `/credits/confirm` return page that requeries Interswitch before credits are issued
 - `/agents/[id]` details + publish status + runs
 - `/agents/[id]/chat` run agent chat
 - `/profile` credits and creator profile
@@ -104,6 +113,7 @@ Official references:
 - `POST /api/agents/:id/run`
 - `GET /api/credits`
 - `POST /api/credits`
+- `POST /api/credits/:id/confirm` (server-side Interswitch requery and reconciliation)
 - `POST /api/credits/onchain` (verify tx and credit from native-token top-up)
 - `POST /api/credits/:id/simulate` (demo webhook reconciliation)
 - `POST /api/webhooks/payments`
@@ -116,3 +126,11 @@ Official references:
 2. Capture the returned `uploadProof.manifest.rootHash` and `uploadProof.manifest.transactionHash`.
 3. Open the agent detail page and click `Verify Storage Retrieval`.
 4. The app calls `GET /api/agents/:id/storage`, downloads from storage, and returns proof metadata.
+
+## Interswitch Flow
+
+1. Open `/credits` and choose the `Interswitch` rail.
+2. Enter a naira amount and submit the hosted checkout form to Interswitch.
+3. After payment, Interswitch redirects the user to `/credits/confirm`.
+4. Ajently makes a server-side requery to `gettransaction.json` and only credits the account after a successful response and amount match.
+5. Optional: configure Interswitch webhooks to reconcile completed payments asynchronously through `/api/webhooks/payments`.

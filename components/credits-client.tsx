@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { parseEther } from "viem";
 import {
@@ -17,6 +18,11 @@ import { formatCredits } from "@/lib/format";
 import type { CreditLedgerRecord, TopupOrderRecord } from "@/lib/types";
 
 type CreditsPayload = {
+  paymentProvider?: {
+    name: string;
+    configured: boolean;
+    environment: "sandbox" | "live";
+  };
   stats: {
     remaining: number;
     used: number;
@@ -27,9 +33,16 @@ type CreditsPayload = {
   error?: string;
 };
 
-type PaymentRail = "native" | "stablecoin" | "fiat";
+type PaymentRail = "native" | "fiat";
+
+type CheckoutSession = {
+  actionUrl: string;
+  environment: "sandbox" | "live";
+  fields: Record<string, string>;
+};
 
 const QUICK_ADD_AMOUNTS = ["5", "10", "25", "50"] as const;
+const QUICK_FIAT_AMOUNTS = ["1000", "2500", "5000", "10000"] as const;
 const TOPUP_TREASURY_ADDRESS = process.env.NEXT_PUBLIC_TOPUP_TREASURY_ADDRESS?.trim() as
   | `0x${string}`
   | undefined;
@@ -41,9 +54,10 @@ export function CreditsClient() {
   const [simulatingId, setSimulatingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [state, setState] = useState<CreditsPayload | null>(null);
-  const [amount, setAmount] = useState("5");
+  const [nativeAmount, setNativeAmount] = useState("5");
+  const [fiatAmount, setFiatAmount] = useState("1000");
   const [rail, setRail] = useState<PaymentRail>("native");
-  const [offchainCurrency, setOffchainCurrency] = useState("USDC");
+  const [offchainCurrency] = useState("NGN");
   const [pendingTxHash, setPendingTxHash] = useState<`0x${string}` | null>(null);
 
   const { address, isConnected } = useAccount();
@@ -86,36 +100,54 @@ export function CreditsClient() {
     [state?.topups],
   );
 
-  async function createOffchainTopup() {
-    if (rail === "native") {
-      return;
+  function submitHostedCheckout(session: CheckoutSession) {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = session.actionUrl;
+
+    for (const [name, value] of Object.entries(session.fields)) {
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = name;
+      input.value = value;
+      form.appendChild(input);
     }
 
+    document.body.appendChild(form);
+    form.submit();
+  }
+
+  async function createOffchainTopup() {
     setSubmitting(true);
     setError("");
     const response = await fetch("/api/credits", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        amount: Number(amount),
-        rail,
+        amount: Number(fiatAmount),
+        rail: "fiat",
         currency: offchainCurrency,
       }),
     });
 
-    const payload = (await response.json()) as { error?: string };
+    const payload = (await response.json()) as { error?: string; checkout?: CheckoutSession };
     if (!response.ok) {
       setError(payload.error ?? "Failed to create top-up");
       setSubmitting(false);
       return;
     }
 
-    setSubmitting(false);
-    await loadCredits();
+    if (!payload.checkout) {
+      setError("Checkout session was not returned.");
+      setSubmitting(false);
+      return;
+    }
+
+    submitHostedCheckout(payload.checkout);
   }
 
   async function addFundsFromWallet() {
-    const parsedAmount = Number(amount);
+    const parsedAmount = Number(nativeAmount);
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       setError("Enter a valid amount to top up.");
       return;
@@ -143,7 +175,7 @@ export function CreditsClient() {
       const hash = await sendTransactionAsync({
         to: TOPUP_TREASURY_ADDRESS,
         chainId,
-        value: parseEther(amount),
+        value: parseEther(nativeAmount),
       });
       setPendingTxHash(hash);
 
@@ -157,7 +189,7 @@ export function CreditsClient() {
           chainId,
           fromAddress: address,
           currency: nativeSymbol.toUpperCase(),
-          expectedAmount: amount,
+          expectedAmount: nativeAmount,
         }),
       });
 
@@ -197,9 +229,7 @@ export function CreditsClient() {
     <div className="space-y-6">
       <div className="rounded-2xl border border-ink/15 bg-white/70 p-5">
         <h1 className="text-3xl font-black">Credits</h1>
-        <p className="muted mt-2 text-sm">
-          Fund your account from your connected chain wallet, or continue with stablecoin/fiat checkout.
-        </p>
+        <p className="muted mt-2 text-sm">Fund Ajently with your wallet or a Nigerian card/bank payment via Interswitch.</p>
         <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
           <p>
             <span className="font-semibold">Remaining:</span>{" "}
@@ -230,22 +260,11 @@ export function CreditsClient() {
             <button
               type="button"
               onClick={() => {
-                setRail("stablecoin");
-                setOffchainCurrency("USDC");
-              }}
-              className={`rounded-lg px-3 py-1.5 ${rail === "stablecoin" ? "bg-ink text-white" : "hover:bg-ink/5"}`}
-            >
-              Stablecoin
-            </button>
-            <button
-              type="button"
-              onClick={() => {
                 setRail("fiat");
-                setOffchainCurrency("USD");
               }}
               className={`rounded-lg px-3 py-1.5 ${rail === "fiat" ? "bg-ink text-white" : "hover:bg-ink/5"}`}
             >
-              Fiat
+              Interswitch
             </button>
           </div>
         </div>
@@ -258,9 +277,9 @@ export function CreditsClient() {
                   <button
                     key={quickAmount}
                     type="button"
-                    onClick={() => setAmount(quickAmount)}
+                    onClick={() => setNativeAmount(quickAmount)}
                     className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
-                      amount === quickAmount
+                      nativeAmount === quickAmount
                         ? "border-ink bg-ink text-white"
                         : "border-ink/20 bg-white hover:bg-ink/5"
                     }`}
@@ -274,8 +293,8 @@ export function CreditsClient() {
                 <label className="mb-1 block text-sm font-semibold">Custom Amount</label>
                 <div className="flex items-center gap-2">
                   <input
-                    value={amount}
-                    onChange={(event) => setAmount(event.currentTarget.value)}
+                    value={nativeAmount}
+                    onChange={(event) => setNativeAmount(event.currentTarget.value)}
                     type="number"
                     min={0}
                     step="0.0001"
@@ -292,7 +311,9 @@ export function CreditsClient() {
                 disabled={fundingOnchain || !isConnected}
                 onClick={addFundsFromWallet}
               >
-                {fundingOnchain ? "Confirming onchain top-up..." : `Add ${amount || "0"} ${nativeSymbol}`}
+                {fundingOnchain
+                  ? "Confirming onchain top-up..."
+                  : `Add ${nativeAmount || "0"} ${nativeSymbol}`}
               </Button>
             </div>
 
@@ -324,41 +345,61 @@ export function CreditsClient() {
             </aside>
           </div>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-4">
-            <input
-              value={amount}
-              onChange={(event) => setAmount(event.currentTarget.value)}
-              type="number"
-              min={1}
-              step="0.01"
-              className="rounded-xl border border-ink/20 px-3 py-2 text-sm"
-              placeholder="Amount"
-            />
-            <select
-              value={offchainCurrency}
-              onChange={(event) => setOffchainCurrency(event.currentTarget.value.toUpperCase())}
-              className="rounded-xl border border-ink/20 px-3 py-2 text-sm"
-            >
-              {rail === "stablecoin" ? (
-                <>
-                  <option value="USDC">USDC</option>
-                  <option value="USDT">USDT</option>
-                  <option value="DAI">DAI</option>
-                </>
-              ) : (
-                <>
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="AED">AED</option>
-                </>
-              )}
-            </select>
-            <div className="rounded-xl border border-ink/20 bg-ink/5 px-3 py-2 text-sm">
-              Rail: {rail}
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+              <p className="font-semibold">Ajently x Interswitch checkout</p>
+              <p className="mt-1">
+                Buy credits in NGN using cards, transfers, USSD, or other methods supported by Interswitch Web
+                Checkout.
+              </p>
+              <p className="mt-2 text-xs uppercase tracking-[0.18em] text-emerald-800/70">
+                {state?.paymentProvider?.configured
+                  ? `Environment: ${state.paymentProvider.environment}`
+                  : "Set INTERSWITCH_MERCHANT_CODE and INTERSWITCH_PAY_ITEM_ID to enable checkout"}
+              </p>
             </div>
-            <Button type="button" disabled={submitting} onClick={createOffchainTopup}>
-              {submitting ? "Creating..." : "Create Top-Up Order"}
-            </Button>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              {QUICK_FIAT_AMOUNTS.map((quickAmount) => (
+                <button
+                  key={quickAmount}
+                  type="button"
+                  onClick={() => setFiatAmount(quickAmount)}
+                  className={`rounded-xl border px-3 py-2 text-sm font-semibold ${
+                    fiatAmount === quickAmount
+                      ? "border-ink bg-ink text-white"
+                      : "border-ink/20 bg-white hover:bg-ink/5"
+                  }`}
+                >
+                  NGN {Number(quickAmount).toLocaleString()}
+                </button>
+              ))}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-4">
+              <input
+                value={fiatAmount}
+                onChange={(event) => setFiatAmount(event.currentTarget.value)}
+                type="number"
+                min={1}
+                step="0.01"
+                className="rounded-xl border border-ink/20 px-3 py-2 text-sm"
+                placeholder="Amount"
+              />
+              <div className="rounded-xl border border-ink/20 bg-white px-3 py-2 text-sm font-semibold">
+                {offchainCurrency}
+              </div>
+              <div className="rounded-xl border border-ink/20 bg-ink/5 px-3 py-2 text-sm">
+                Credits received: {Number(fiatAmount || 0).toLocaleString()}
+              </div>
+              <Button
+                type="button"
+                disabled={submitting || !state?.paymentProvider?.configured}
+                onClick={createOffchainTopup}
+              >
+                {submitting ? "Redirecting..." : "Pay with Interswitch"}
+              </Button>
+            </div>
           </div>
         )}
       </section>
@@ -378,17 +419,21 @@ export function CreditsClient() {
                   {topup.amount}
                 </p>
                 <p className="font-[var(--font-mono)] text-xs">{topup.providerReference}</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-2"
-                  disabled={simulatingId === topup.id}
-                  onClick={() => {
-                    void simulateWebhook(topup.id);
-                  }}
-                >
-                  {simulatingId === topup.id ? "Reconciling..." : "Simulate Webhook Completion"}
-                </Button>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button asChild variant="outline">
+                    <Link href={`/credits/confirm?orderId=${topup.id}`}>Confirm with Interswitch</Link>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={simulatingId === topup.id}
+                    onClick={() => {
+                      void simulateWebhook(topup.id);
+                    }}
+                  >
+                    {simulatingId === topup.id ? "Reconciling..." : "Simulate Webhook"}
+                  </Button>
+                </div>
               </article>
             ))}
           </div>

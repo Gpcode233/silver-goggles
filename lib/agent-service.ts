@@ -2,6 +2,11 @@ import fs from "node:fs/promises";
 import crypto from "node:crypto";
 
 import { getLastInsertId, queryAll, queryOne, withRead, withWrite } from "@/lib/db";
+import {
+  isInterswitchPendingCode,
+  isInterswitchSuccessCode,
+  requeryInterswitchTransaction,
+} from "@/lib/interswitch";
 import { AGENT_MODELS } from "@/lib/types";
 import type {
   AgentCardGradient,
@@ -620,6 +625,107 @@ export async function reconcileTopupOrder(params: {
     }
     return mapTopupOrder(updated);
   });
+}
+
+export async function confirmTopupOrderWithInterswitch(topupId: number): Promise<{
+  order: TopupOrderRecord;
+  state: "completed" | "pending" | "failed";
+  gateway: {
+    code: string | null;
+    description: string | null;
+    paymentReference: string | null;
+    amountMinor: number | null;
+  };
+}> {
+  const order = await getTopupOrderById(topupId);
+  if (!order) {
+    throw new Error("Top-up order not found");
+  }
+
+  if (order.rail !== "fiat") {
+    throw new Error("Only Interswitch-backed fiat top-ups can be confirmed here.");
+  }
+
+  if (order.status === "completed") {
+    return {
+      order,
+      state: "completed",
+      gateway: {
+        code: "00",
+        description: "Already reconciled",
+        paymentReference: null,
+        amountMinor: null,
+      },
+    };
+  }
+
+  const requery = await requeryInterswitchTransaction({
+    txnRef: order.providerReference,
+    amount: order.amount,
+  });
+
+  const responseCode = requery.ResponseCode ?? null;
+  const responseDescription = requery.ResponseDescription ?? null;
+  const amountMinor = typeof requery.Amount === "number" ? requery.Amount : null;
+  const expectedMinor = Math.round(order.amount * 100);
+
+  if (isInterswitchSuccessCode(responseCode)) {
+    if (amountMinor !== expectedMinor) {
+      throw new Error(
+        `Interswitch amount mismatch. Expected ${expectedMinor}, received ${amountMinor ?? "unknown"}.`,
+      );
+    }
+
+    const reconciled = await reconcileTopupOrder({
+      providerReference: order.providerReference,
+      status: "completed",
+      note:
+        requery.PaymentReference?.trim()
+          ? `Interswitch payment confirmed (${requery.PaymentReference.trim()})`
+          : "Interswitch payment confirmed",
+    });
+
+    return {
+      order: reconciled,
+      state: "completed",
+      gateway: {
+        code: responseCode,
+        description: responseDescription,
+        paymentReference: requery.PaymentReference ?? null,
+        amountMinor,
+      },
+    };
+  }
+
+  if (!isInterswitchPendingCode(responseCode)) {
+    const reconciled = await reconcileTopupOrder({
+      providerReference: order.providerReference,
+      status: "failed",
+      note: responseDescription ?? "Interswitch payment failed",
+    });
+
+    return {
+      order: reconciled,
+      state: "failed",
+      gateway: {
+        code: responseCode,
+        description: responseDescription,
+        paymentReference: requery.PaymentReference ?? null,
+        amountMinor,
+      },
+    };
+  }
+
+  return {
+    order,
+    state: "pending",
+    gateway: {
+      code: responseCode,
+      description: responseDescription,
+      paymentReference: requery.PaymentReference ?? null,
+      amountMinor,
+    },
+  };
 }
 
 export async function getCreditStats(userId: number): Promise<{

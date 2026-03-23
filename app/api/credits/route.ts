@@ -1,13 +1,18 @@
 import { NextResponse } from "next/server";
 
 import {
-  createTopupOrder,
   DEMO_USER_ID,
+  createTopupOrder,
   getCreditStats,
   getUserById,
   listCreditLedgerForUser,
   listTopupOrdersForUser,
 } from "@/lib/agent-service";
+import {
+  buildInterswitchCheckoutSession,
+  getInterswitchEnvironment,
+  isInterswitchConfigured,
+} from "@/lib/interswitch";
 import { createTopupSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +29,17 @@ export async function GET() {
     listTopupOrdersForUser(DEMO_USER_ID, 100),
   ]);
 
-  return NextResponse.json({ user, stats, ledger, topups });
+  return NextResponse.json({
+    user,
+    stats,
+    ledger,
+    topups,
+    paymentProvider: {
+      name: "Interswitch Web Checkout",
+      configured: isInterswitchConfigured(),
+      environment: getInterswitchEnvironment(),
+    },
+  });
 }
 
 export async function POST(request: Request) {
@@ -38,6 +53,16 @@ export async function POST(request: Request) {
     );
   }
 
+  if (!isInterswitchConfigured()) {
+    return NextResponse.json(
+      {
+        error:
+          "Interswitch checkout is not configured. Set INTERSWITCH_MERCHANT_CODE and INTERSWITCH_PAY_ITEM_ID.",
+      },
+      { status: 500 },
+    );
+  }
+
   const order = await createTopupOrder({
     userId: DEMO_USER_ID,
     rail: parsed.data.rail,
@@ -45,13 +70,20 @@ export async function POST(request: Request) {
     amount: parsed.data.amount,
   });
 
+  const origin = new URL(request.url).origin;
+  const checkout = buildInterswitchCheckoutSession({
+    txnRef: order.providerReference,
+    amount: order.amount,
+    redirectUrl: `${origin}/credits/confirm?orderId=${order.id}`,
+    customerId: `user-${DEMO_USER_ID}`,
+    customerName: "Ajently Demo User",
+    itemName: `Ajently Credits (${order.amount} ${order.currency})`,
+  });
+
   return NextResponse.json(
     {
       order,
-      checkout: {
-        message: "Top-up order created. Complete payment and send webhook to reconcile credits.",
-        providerReference: order.providerReference,
-      },
+      checkout,
     },
     { status: 201 },
   );

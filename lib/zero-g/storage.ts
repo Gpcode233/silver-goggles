@@ -15,6 +15,8 @@ type UploadOptions = {
   requireReal?: boolean;
 };
 
+type UploadReceipt = Awaited<ReturnType<import("@0gfoundation/0g-ts-sdk").Indexer["upload"]>>[0];
+
 const MOCK_STORAGE_DIR = resolveDataPath("mock-storage");
 const DOWNLOAD_DIR = resolveDataPath("downloads");
 
@@ -122,7 +124,7 @@ async function uploadBytesToRealStorage(data: Uint8Array): Promise<UploadResult>
     throw new Error(`Merkle tree error: ${treeError.message}`);
   }
 
-  let receipt: Awaited<ReturnType<typeof indexer.upload>>[0] | null = null;
+  let receipt: UploadReceipt | null = null;
   let error: Awaited<ReturnType<typeof indexer.upload>>[1] | null = null;
 
   try {
@@ -152,10 +154,17 @@ async function uploadBytesToRealStorage(data: Uint8Array): Promise<UploadResult>
     throw new Error(error?.message ?? "0G storage upload failed");
   }
 
+  const rootHash = "rootHash" in receipt ? receipt.rootHash : receipt.rootHashes[0];
+  const txHash = "txHash" in receipt ? receipt.txHash : receipt.txHashes[0] ?? null;
+
+  if (!rootHash) {
+    throw new Error("0G storage upload returned no root hash");
+  }
+
   return {
-    rootHash: receipt.rootHash,
-    uri: `0g://${receipt.rootHash}`,
-    transactionHash: receipt.txHash,
+    rootHash,
+    uri: `0g://${rootHash}`,
+    transactionHash: txHash,
     mode: "real",
   };
 }

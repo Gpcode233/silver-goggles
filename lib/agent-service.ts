@@ -60,6 +60,12 @@ type UserRow = {
   id: number;
   wallet_address: string;
   credits: number;
+  email: string | null;
+  password_hash: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  auth_provider: "demo" | "email" | "google" | "wallet";
+  onboarding_completed: number;
 };
 
 type CreditLedgerRow = {
@@ -134,6 +140,11 @@ function mapUser(row: UserRow): UserRecord {
     id: row.id,
     walletAddress: row.wallet_address,
     credits: Number(row.credits),
+    email: row.email,
+    displayName: row.display_name,
+    avatarUrl: row.avatar_url,
+    authProvider: row.auth_provider,
+    onboardingCompleted: row.onboarding_completed === 1,
   };
 }
 
@@ -278,6 +289,46 @@ export async function createAgent(input: {
   });
 }
 
+export async function updateAgent(input: {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  systemPrompt: string;
+  cardImageDataUrl: string | null;
+  cardGradient: AgentCardGradient;
+}): Promise<AgentRecord> {
+  return withWrite((db) => {
+    db.run(
+      `
+        UPDATE agents
+        SET name = ?,
+            description = ?,
+            category = ?,
+            system_prompt = ?,
+            card_image_data_url = ?,
+            card_gradient = ?
+        WHERE id = ?;
+      `,
+      [
+        input.name,
+        input.description,
+        input.category,
+        input.systemPrompt,
+        input.cardImageDataUrl,
+        input.cardGradient,
+        input.id,
+      ],
+    );
+
+    const row = queryOne<AgentRow>(db, "SELECT * FROM agents WHERE id = ?", [input.id]);
+    if (!row) {
+      throw new Error("Failed to update agent");
+    }
+    return mapAgent(row);
+  });
+}
+
 export async function attachKnowledgeFile(
   agentId: number,
   knowledgeLocalPath: string,
@@ -342,6 +393,159 @@ export async function getUserById(userId: number): Promise<UserRecord | null> {
   });
 }
 
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase();
+}
+
+function hashPassword(password: string) {
+  return crypto.createHash("sha256").update(password).digest("hex");
+}
+
+export async function getUserByEmail(email: string): Promise<UserRecord | null> {
+  return withRead((db) => {
+    const row = queryOne<UserRow>(db, "SELECT * FROM users WHERE lower(email) = ?", [normalizeEmail(email)]);
+    return row ? mapUser(row) : null;
+  });
+}
+
+export async function getOrCreateGoogleUser(): Promise<UserRecord> {
+  return withWrite((db) => {
+    const seedEmail = `google-${crypto.randomUUID()}@ajently.local`;
+    db.run(
+      `
+        INSERT INTO users (wallet_address, credits, email, auth_provider, onboarding_completed)
+        VALUES (?, 100, ?, 'google', 0);
+      `,
+      [`wallet_google_${crypto.randomUUID()}`, seedEmail],
+    );
+    const row = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [getLastInsertId(db)]);
+    if (!row) throw new Error("Failed to create Google user");
+    return mapUser(row);
+  });
+}
+
+export async function upsertGoogleUser(params: {
+  email: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+}): Promise<UserRecord> {
+  return withWrite((db) => {
+    const email = normalizeEmail(params.email);
+    const existing = queryOne<UserRow>(db, "SELECT * FROM users WHERE lower(email) = ?", [email]);
+    if (existing) {
+      db.run(
+        `
+          UPDATE users
+          SET display_name = COALESCE(?, display_name),
+              avatar_url = COALESCE(?, avatar_url),
+              auth_provider = 'google'
+          WHERE id = ?;
+        `,
+        [params.displayName, params.avatarUrl, existing.id],
+      );
+      const updated = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [existing.id]);
+      if (!updated) throw new Error("Failed to update Google user");
+      return mapUser(updated);
+    }
+
+    db.run(
+      `
+        INSERT INTO users (wallet_address, credits, email, display_name, avatar_url, auth_provider, onboarding_completed)
+        VALUES (?, 100, ?, ?, ?, 'google', ?);
+      `,
+      [
+        `wallet_google_${crypto.randomUUID()}`,
+        email,
+        params.displayName,
+        params.avatarUrl,
+        params.displayName && params.avatarUrl ? 1 : 0,
+      ],
+    );
+    const row = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [getLastInsertId(db)]);
+    if (!row) throw new Error("Failed to create Google user");
+    return mapUser(row);
+  });
+}
+
+export async function getOrCreateWalletUser(walletAddress: string): Promise<UserRecord> {
+  return withWrite((db) => {
+    const existing = queryOne<UserRow>(db, "SELECT * FROM users WHERE wallet_address = ?", [walletAddress]);
+    if (existing) {
+      return mapUser(existing);
+    }
+    db.run(
+      `
+        INSERT INTO users (wallet_address, credits, auth_provider, onboarding_completed)
+        VALUES (?, 100, 'wallet', 0);
+      `,
+      [walletAddress],
+    );
+    const row = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [getLastInsertId(db)]);
+    if (!row) throw new Error("Failed to create wallet user");
+    return mapUser(row);
+  });
+}
+
+export async function registerEmailUser(params: {
+  email: string;
+  password: string;
+}): Promise<UserRecord> {
+  return withWrite((db) => {
+    const email = normalizeEmail(params.email);
+    const existing = queryOne<UserRow>(db, "SELECT * FROM users WHERE lower(email) = ?", [email]);
+    if (existing) {
+      throw new Error("EMAIL_EXISTS");
+    }
+    db.run(
+      `
+        INSERT INTO users (wallet_address, credits, email, password_hash, auth_provider, onboarding_completed)
+        VALUES (?, 100, ?, ?, 'email', 0);
+      `,
+      [`wallet_email_${crypto.randomUUID()}`, email, hashPassword(params.password)],
+    );
+    const row = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [getLastInsertId(db)]);
+    if (!row) throw new Error("Failed to create email user");
+    return mapUser(row);
+  });
+}
+
+export async function authenticateEmailUser(params: {
+  email: string;
+  password: string;
+}): Promise<UserRecord> {
+  return withRead((db) => {
+    const row = queryOne<UserRow>(db, "SELECT * FROM users WHERE lower(email) = ?", [normalizeEmail(params.email)]);
+    if (!row || !row.password_hash || row.password_hash !== hashPassword(params.password)) {
+      throw new Error("INVALID_CREDENTIALS");
+    }
+    return mapUser(row);
+  });
+}
+
+export async function completeUserOnboarding(params: {
+  userId: number;
+  displayName: string;
+  email: string | null;
+  avatarUrl: string | null;
+}): Promise<UserRecord> {
+  return withWrite((db) => {
+    db.run(
+      `
+        UPDATE users
+        SET display_name = ?,
+            email = COALESCE(?, email),
+            avatar_url = ?,
+            onboarding_completed = 1
+        WHERE id = ?;
+      `,
+      [params.displayName, params.email ? normalizeEmail(params.email) : null, params.avatarUrl, params.userId],
+    );
+    const row = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [params.userId]);
+    if (!row) throw new Error("User not found");
+    return mapUser(row);
+  });
+}
+
 export async function listRunsForAgent(agentId: number): Promise<RunRecord[]> {
   return withRead((db) => {
     const rows = queryAll<RunRow>(
@@ -370,6 +574,23 @@ export async function listRecentRuns(limit = 40): Promise<RunRecord[]> {
         LIMIT ?;
       `,
       [limit],
+    );
+    return rows.map(mapRun);
+  });
+}
+
+export async function listRunsForUser(userId: number, limit = 20): Promise<RunRecord[]> {
+  return withRead((db) => {
+    const rows = queryAll<RunRow>(
+      db,
+      `
+        SELECT *
+        FROM runs
+        WHERE user_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?;
+      `,
+      [userId, limit],
     );
     return rows.map(mapRun);
   });

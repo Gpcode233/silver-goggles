@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Bricolage_Grotesque, Space_Mono } from "next/font/google";
 
 import favicon from "@/assets/favicon.ico";
-import { SiteHeader } from "@/components/site-header";
+import { AppShell } from "@/components/app-shell";
 import { Web3Provider } from "@/components/web3-provider";
 
 import "./globals.css";
@@ -34,10 +34,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body className={`${displayFont.variable} ${monoFont.variable} antialiased`}>
         <Web3Provider>
-          <div className="mx-auto min-h-screen w-full px-4 pb-6 sm:px-6 lg:px-8">
-            <SiteHeader />
-            <div className="mt-6">{children}</div>
-          </div>
+          <AppShell>{children}</AppShell>
         </Web3Provider>
       </body>
     </html>

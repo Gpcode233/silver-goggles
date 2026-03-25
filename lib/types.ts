@@ -10,9 +10,11 @@ export const AGENT_CATEGORIES = [
 ] as const;
 
 export type AgentCategory = (typeof AGENT_CATEGORIES)[number];
+export const DEFAULT_TEXT_AGENT_MODEL = "openai/gpt-oss-120b:free" as const;
 
 export const AGENT_MODELS = [
   "openrouter/free",
+  DEFAULT_TEXT_AGENT_MODEL,
   "meta-llama/llama-3.2-3b-instruct:free",
   "meta-llama/llama-3.3-70b-instruct:free",
   "mistralai/mistral-small-3.1-24b-instruct:free",
@@ -36,6 +38,7 @@ export type AgentModel = (typeof AGENT_MODELS)[number];
 
 export const AGENT_MODEL_BADGES: Record<AgentModel, "text" | "image" | "vision"> = {
   "openrouter/free": "text",
+  "openai/gpt-oss-120b:free": "text",
   "meta-llama/llama-3.2-3b-instruct:free": "text",
   "meta-llama/llama-3.3-70b-instruct:free": "text",
   "mistralai/mistral-small-3.1-24b-instruct:free": "text",
@@ -102,6 +105,11 @@ export type UserRecord = {
   id: number;
   walletAddress: string;
   credits: number;
+  email: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
+  authProvider: "demo" | "email" | "google" | "wallet";
+  onboardingCompleted: boolean;
 };
 
 export type CreditLedgerKind = "topup" | "run_debit" | "manual_adjustment";

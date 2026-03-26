@@ -89,6 +89,7 @@ export function buildInterswitchCheckoutSession(params: {
   txnRef: string;
   amount: number;
   redirectUrl: string;
+  currency?: string;
   customerEmail?: string;
   customerName?: string;
   customerId?: string;
@@ -100,6 +101,16 @@ export function buildInterswitchCheckoutSession(params: {
     process.env.INTERSWITCH_DEFAULT_CUSTOMER_EMAIL?.trim() ||
     "demo@ajently.ai";
 
+  const currencyCodeByLabel: Record<string, string> = {
+    NGN: "566",
+    USD: "840",
+    KES: "404",
+    GHS: "936",
+    ZAR: "710",
+    UGX: "800",
+  };
+  const currencyCode = currencyCodeByLabel[params.currency?.trim().toUpperCase() ?? "NGN"] ?? "566";
+
   return {
     actionUrl: getInterswitchCheckoutActionUrl(config.environment),
     environment: config.environment,
@@ -109,7 +120,7 @@ export function buildInterswitchCheckoutSession(params: {
       site_redirect_url: params.redirectUrl,
       txn_ref: params.txnRef,
       amount: String(convertMajorToMinor(params.amount)),
-      currency: "566",
+      currency: currencyCode,
       cust_email: customerEmail,
       ...(params.customerName?.trim() ? { cust_name: params.customerName.trim() } : {}),
       ...(params.customerId?.trim() ? { cust_id: params.customerId.trim() } : {}),

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createPublicClient, formatEther, http, isAddress, isAddressEqual, parseEther } from "viem";
 
-import { completeOnchainTopup, DEMO_USER_ID } from "@/lib/agent-service";
+import { completeOnchainTopup } from "@/lib/agent-service";
+import { getCurrentUserId } from "@/lib/auth";
 import { createOnchainTopupSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +26,11 @@ function getTreasuryAddress() {
 }
 
 export async function POST(request: Request) {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const parsed = createOnchainTopupSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json(
@@ -90,7 +96,7 @@ export async function POST(request: Request) {
     }
 
     const completed = await completeOnchainTopup({
-      userId: DEMO_USER_ID,
+      userId,
       txHash: parsed.data.txHash,
       fromAddress: tx.from,
       chainId: parsed.data.chainId,

@@ -1,16 +1,29 @@
 import { z } from "zod";
 
-import { AGENT_CARD_GRADIENTS, AGENT_CATEGORIES, AGENT_MODELS } from "@/lib/types";
+import {
+  AGENT_CARD_GRADIENTS,
+  AGENT_CATEGORIES,
+  AGENT_MODELS,
+  DEFAULT_TEXT_AGENT_MODEL,
+} from "@/lib/types";
 
 export const createAgentSchema = z.object({
   name: z.string().trim().min(3).max(80),
   description: z.string().trim().min(10).max(400),
   category: z.enum(AGENT_CATEGORIES),
-  model: z.enum(AGENT_MODELS).default("openrouter/free"),
+  model: z.enum(AGENT_MODELS).default(DEFAULT_TEXT_AGENT_MODEL),
   systemPrompt: z.string().trim().min(10).max(5000),
   pricePerRun: z.coerce.number().min(0).max(1000),
   cardGradient: z.enum(AGENT_CARD_GRADIENTS).default("aurora"),
   publishNow: z.coerce.boolean().default(true),
+});
+
+export const updateAgentSchema = z.object({
+  name: z.string().trim().min(3).max(80),
+  description: z.string().trim().min(10).max(400),
+  category: z.enum(AGENT_CATEGORIES),
+  systemPrompt: z.string().trim().min(10).max(5000),
+  cardGradient: z.enum(AGENT_CARD_GRADIENTS).default("aurora"),
 });
 
 export const runAgentSchema = z.object({
@@ -25,7 +38,7 @@ export const listAgentsSchema = z.object({
 
 export const createTopupSchema = z.object({
   rail: z.enum(["fiat"]),
-  currency: z.literal("NGN"),
+  currency: z.enum(["NGN", "USD", "KES", "GHS", "ZAR", "UGX"]),
   amount: z.coerce.number().min(1).max(10000),
 });
 

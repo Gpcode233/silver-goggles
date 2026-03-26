@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 
 import {
-  DEMO_USER_ID,
   createTopupOrder,
   getCreditStats,
   getUserById,
   listCreditLedgerForUser,
   listTopupOrdersForUser,
 } from "@/lib/agent-service";
+import { getCurrentUserId } from "@/lib/auth";
 import {
   buildInterswitchCheckoutSession,
   getInterswitchEnvironment,
@@ -18,15 +18,20 @@ import { createTopupSchema } from "@/lib/validation";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const user = await getUserById(DEMO_USER_ID);
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await getUserById(userId);
   if (!user) {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
   const [stats, ledger, topups] = await Promise.all([
-    getCreditStats(DEMO_USER_ID),
-    listCreditLedgerForUser(DEMO_USER_ID, 100),
-    listTopupOrdersForUser(DEMO_USER_ID, 100),
+    getCreditStats(userId),
+    listCreditLedgerForUser(userId, 100),
+    listTopupOrdersForUser(userId, 100),
   ]);
 
   return NextResponse.json({
@@ -43,6 +48,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = await request.json();
   const parsed = createTopupSchema.safeParse(body);
 
@@ -64,19 +74,21 @@ export async function POST(request: Request) {
   }
 
   const order = await createTopupOrder({
-    userId: DEMO_USER_ID,
+    userId,
     rail: parsed.data.rail,
     currency: parsed.data.currency,
     amount: parsed.data.amount,
   });
+  const user = await getUserById(userId);
 
   const origin = new URL(request.url).origin;
   const checkout = buildInterswitchCheckoutSession({
     txnRef: order.providerReference,
     amount: order.amount,
     redirectUrl: `${origin}/credits/confirm?orderId=${order.id}`,
-    customerId: `user-${DEMO_USER_ID}`,
-    customerName: "Ajently Demo User",
+    currency: order.currency,
+    customerId: `user-${userId}`,
+    customerName: user?.displayName ?? user?.email ?? "Ajently User",
     itemName: `Ajently Credits (${order.amount} ${order.currency})`,
   });
 

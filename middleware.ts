@@ -3,6 +3,12 @@ import type { NextRequest } from "next/server";
 
 const SESSION_COOKIE = "ajently_session";
 const ONBOARDING_COOKIE = "ajently_onboarded";
+const PROVIDER_SESSION_COOKIES = [
+  "__Secure-authjs.session-token",
+  "authjs.session-token",
+  "__Secure-next-auth.session-token",
+  "next-auth.session-token",
+];
 
 const PUBLIC_PATHS = ["/auth", "/auth/google-complete"];
 const ONBOARDING_PATH = "/onboarding";
@@ -23,7 +29,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+  const hasAppSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
+  const hasProviderSession = PROVIDER_SESSION_COOKIES.some((name) => Boolean(request.cookies.get(name)?.value));
+  const hasSession = hasAppSession || hasProviderSession;
   const onboarded = request.cookies.get(ONBOARDING_COOKIE)?.value === "1";
 
   if (!hasSession && !PUBLIC_PATHS.includes(pathname)) {
@@ -35,7 +43,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(authUrl);
   }
 
-  if (hasSession && !onboarded && pathname !== ONBOARDING_PATH) {
+  if (hasAppSession && !onboarded && pathname !== ONBOARDING_PATH) {
     return NextResponse.redirect(new URL(ONBOARDING_PATH, request.url));
   }
 

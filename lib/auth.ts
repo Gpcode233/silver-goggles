@@ -1,5 +1,9 @@
 import { cookies } from "next/headers";
+import { getServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+
+import { getUserByEmail } from "@/lib/agent-service";
+import { authOptions } from "@/lib/next-auth";
 
 export const SESSION_COOKIE = "ajently_session";
 export const ONBOARDING_COOKIE = "ajently_onboarded";
@@ -14,7 +18,18 @@ export async function getCurrentUserId() {
   const store = await cookies();
   const raw = store.get(SESSION_COOKIE)?.value;
   const userId = Number(raw);
-  return Number.isInteger(userId) && userId > 0 ? userId : null;
+  if (Number.isInteger(userId) && userId > 0) {
+    return userId;
+  }
+
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email?.trim().toLowerCase();
+  if (!email) {
+    return null;
+  }
+
+  const user = await getUserByEmail(email);
+  return user?.id ?? null;
 }
 
 export async function requireCurrentUserId() {

@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, Space_Mono } from "next/font/google";
-import { SessionProvider } from "next-auth/react";
 
 import favicon from "@/assets/favicon.ico";
 import { AppShell } from "@/components/app-shell";
-import { Web3Provider } from "@/components/web3-provider";
+import { Providers } from "@/components/providers";
 
 import "./globals.css";
 
@@ -34,11 +33,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body className={`${displayFont.variable} ${monoFont.variable} antialiased`}>
-        <SessionProvider>
-          <Web3Provider>
-            <AppShell>{children}</AppShell>
-          </Web3Provider>
-        </SessionProvider>
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
       </body>
     </html>
   );

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
 import { Bot, Gauge, Plus, TrendingUp, UserCircle2 } from "lucide-react";
 
 import {
@@ -60,24 +60,21 @@ function formatPurchaseDate(value: string) {
 export default async function ProfilePage() {
   const userId = await getCurrentUserId();
   if (!userId) {
-    notFound();
+    redirect("/auth");
   }
 
-  const [user, agents, creditStats, topups, runs] = await Promise.all([
-    getUserById(userId),
+  const user = await getUserById(userId);
+
+  if (!user) {
+    redirect("/auth");
+  }
+
+  const [agents, creditStats, topups, runs] = await Promise.all([
     listAgentsByCreator(userId),
     getCreditStats(userId),
     listTopupOrdersForUser(userId, 15),
     listRunsForUser(userId, 10),
   ]);
-
-  if (!user) {
-    return (
-      <main className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 lg:px-8">
-        <p>User profile not found.</p>
-      </main>
-    );
-  }
 
   const totalUsedCredits = runs.length > 0 ? Math.max(1, Math.round(creditStats.used)) : 0;
   const purchaseRows = topups.slice(0, 3).map((topup) => ({

@@ -22,11 +22,20 @@ export async function GET() {
     return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
-  const [agents, stats, ledger, topups] = await Promise.all([
-    listAgentsByCreator(userId),
-    getCreditStats(userId),
-    listCreditLedgerForUser(userId, 20),
-    listTopupOrdersForUser(userId, 20),
-  ]);
-  return NextResponse.json({ user, agents, stats, ledger, topups });
+  try {
+    const [agents, stats, ledger, topups] = await Promise.all([
+      listAgentsByCreator(userId),
+      getCreditStats(userId),
+      listCreditLedgerForUser(userId, 20),
+      listTopupOrdersForUser(userId, 20),
+    ]);
+    return NextResponse.json({ user, agents, stats, ledger, topups });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to load profile data",
+      },
+      { status: 500 },
+    );
+  }
 }

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { ChatClient } from "@/components/chat-client";
 import { getCurrentUserId } from "@/lib/auth";
@@ -20,13 +20,17 @@ export default async function AgentChatPage({
 
   const userId = await getCurrentUserId();
   if (!userId) {
-    notFound();
+    redirect("/auth");
   }
 
   const [agent, user] = await Promise.all([getAgentById(agentId), getUserById(userId)]);
 
-  if (!agent || !user) {
+  if (!agent) {
     notFound();
+  }
+
+  if (!user) {
+    redirect("/auth");
   }
 
   return (

@@ -405,6 +405,49 @@ export async function getUserByEmail(email: string): Promise<UserRecord | null> 
   });
 }
 
+export async function getOrCreateEmailSessionUser(params: {
+  email: string;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+}): Promise<UserRecord> {
+  return withWrite((db) => {
+    const email = normalizeEmail(params.email);
+    const existing = queryOne<UserRow>(db, "SELECT * FROM users WHERE lower(email) = ?", [email]);
+
+    if (existing) {
+      db.run(
+        `
+          UPDATE users
+          SET display_name = COALESCE(?, display_name),
+              avatar_url = COALESCE(?, avatar_url)
+          WHERE id = ?;
+        `,
+        [params.displayName ?? null, params.avatarUrl ?? null, existing.id],
+      );
+      const updated = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [existing.id]);
+      if (!updated) throw new Error("Failed to update email session user");
+      return mapUser(updated);
+    }
+
+    db.run(
+      `
+        INSERT INTO users (wallet_address, credits, email, display_name, avatar_url, auth_provider, onboarding_completed)
+        VALUES (?, 100, ?, ?, ?, 'email', ?);
+      `,
+      [
+        `wallet_email_${crypto.randomUUID()}`,
+        email,
+        params.displayName ?? null,
+        params.avatarUrl ?? null,
+        params.displayName ? 1 : 0,
+      ],
+    );
+    const row = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [getLastInsertId(db)]);
+    if (!row) throw new Error("Failed to create email session user");
+    return mapUser(row);
+  });
+}
+
 export async function getOrCreateGoogleUser(): Promise<UserRecord> {
   return withWrite((db) => {
     const seedEmail = `google-${crypto.randomUUID()}@ajently.local`;

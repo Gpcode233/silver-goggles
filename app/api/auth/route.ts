@@ -24,7 +24,13 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: "Wallet address is required" }, { status: 400 });
       }
       const user = await getOrCreateWalletUser(body.walletAddress.trim());
-      return applySessionCookies(NextResponse.json({ user }), user.id, user.onboardingCompleted);
+      return applySessionCookies(NextResponse.json({ user }), user.id, user.onboardingCompleted, {
+        provider: user.authProvider,
+        email: user.email,
+        walletAddress: user.walletAddress,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+      });
     }
 
     if (body.provider === "email") {
@@ -35,7 +41,13 @@ export async function POST(request: Request) {
         body.mode === "signup"
           ? await registerEmailUser({ email: body.email, password: body.password })
           : await authenticateEmailUser({ email: body.email, password: body.password });
-      return applySessionCookies(NextResponse.json({ user }), user.id, user.onboardingCompleted);
+      return applySessionCookies(NextResponse.json({ user }), user.id, user.onboardingCompleted, {
+        provider: user.authProvider,
+        email: user.email,
+        walletAddress: user.walletAddress,
+        displayName: user.displayName,
+        avatarUrl: user.avatarUrl,
+      });
     }
 
     return NextResponse.json({ error: "Unsupported login method" }, { status: 400 });

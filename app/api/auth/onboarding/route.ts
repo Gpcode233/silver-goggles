@@ -36,7 +36,13 @@ export async function POST(request: Request) {
       email: email || null,
       avatarUrl,
     });
-    return applySessionCookies(NextResponse.json({ user }), user.id, true);
+    return applySessionCookies(NextResponse.json({ user }), user.id, true, {
+      provider: user.authProvider,
+      email: user.email,
+      walletAddress: user.walletAddress,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to complete onboarding";
     if (message === "UNAUTHORIZED") {

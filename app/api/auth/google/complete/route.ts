@@ -22,5 +22,11 @@ export async function POST() {
     avatarUrl: sessionUser?.image?.trim() || null,
   });
 
-  return applySessionCookies(NextResponse.json({ user }), user.id, user.onboardingCompleted);
+  return applySessionCookies(NextResponse.json({ user }), user.id, user.onboardingCompleted, {
+    provider: user.authProvider,
+    email: user.email,
+    walletAddress: user.walletAddress,
+    displayName: user.displayName,
+    avatarUrl: user.avatarUrl,
+  });
 }

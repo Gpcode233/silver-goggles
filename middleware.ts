@@ -19,6 +19,10 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  if (PUBLIC_PATHS.includes(pathname)) {
+    return NextResponse.next();
+  }
+
   const hasSession = Boolean(request.cookies.get(SESSION_COOKIE)?.value);
   const onboarded = request.cookies.get(ONBOARDING_COOKIE)?.value === "1";
 
@@ -27,14 +31,6 @@ export function middleware(request: NextRequest) {
   }
 
   if (hasSession && !onboarded && pathname !== ONBOARDING_PATH) {
-    return NextResponse.redirect(new URL(ONBOARDING_PATH, request.url));
-  }
-
-  if (hasSession && onboarded && (pathname === "/auth" || pathname === ONBOARDING_PATH)) {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-
-  if (hasSession && !onboarded && pathname === "/auth") {
     return NextResponse.redirect(new URL(ONBOARDING_PATH, request.url));
   }
 

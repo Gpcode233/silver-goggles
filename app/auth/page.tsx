@@ -52,12 +52,8 @@ export default function AuthPage() {
               Access Workspace
             </p>
             <h1 className="mt-5 text-4xl font-black tracking-[-0.05em] text-slate-950 lg:text-[58px] lg:leading-[0.94]">
-              Sign in before you enter the marketplace.
+              Sign in to access Ajently.
             </h1>
-            <p className="mt-4 max-w-lg text-base leading-8 text-slate-600">
-              Continue with Google, email and password, or a connected wallet. After that, we will
-              collect your profile details once and take you straight into Ajently.
-            </p>
           </div>
 
           <div className="mt-8 space-y-3.5">
@@ -166,11 +162,10 @@ export default function AuthPage() {
         <div className="max-w-[520px]">
           <p className="text-sm font-bold uppercase tracking-[0.2em] text-cyan-300">Ajently Access</p>
           <h2 className="mt-6 text-[58px] font-black tracking-[-0.06em] leading-[0.94] text-white">
-            Your AI agent workspace starts with one clean identity layer.
+            Ajently keeps your agents and credits in one workspace.
           </h2>
           <p className="mt-6 text-[17px] leading-8 text-slate-300">
-            Log in once, set up your profile, and every created agent, credit action, and run history
-            stays tied to your workspace instead of a shared demo account.
+            Sign in once and keep your runs, payments, and published agents tied to your own account.
           </p>
         </div>
 

@@ -3,9 +3,11 @@ import path from "node:path";
 
 import { NextResponse } from "next/server";
 
-import { createAgent, DEMO_USER_ID, listAgents, attachKnowledgeFile } from "@/lib/agent-service";
+import { attachKnowledgeFile, createAgent, listAgents } from "@/lib/agent-service";
+import { getCurrentUserId } from "@/lib/auth";
 import { resolveDataPath } from "@/lib/data-dir";
 import { publishAgent } from "@/lib/publish-agent";
+import { DEFAULT_TEXT_AGENT_MODEL } from "@/lib/types";
 import { listAgentsSchema, createAgentSchema } from "@/lib/validation";
 
 export const dynamic = "force-dynamic";
@@ -50,13 +52,18 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const formData = await request.formData();
 
   const payload = createAgentSchema.safeParse({
     name: formData.get("name"),
     description: formData.get("description"),
     category: formData.get("category"),
-    model: formData.get("model") ?? "openrouter/free",
+    model: formData.get("model") ?? DEFAULT_TEXT_AGENT_MODEL,
     systemPrompt: formData.get("system_prompt"),
     pricePerRun: formData.get("price_per_run"),
     cardGradient: formData.get("card_gradient") ?? "aurora",
@@ -99,7 +106,7 @@ export async function POST(request: Request) {
     pricePerRun: payload.data.pricePerRun,
     cardImageDataUrl,
     cardGradient: payload.data.cardGradient,
-    creatorId: DEMO_USER_ID,
+    creatorId: userId,
   });
 
   const uploadedFile = formData.get("knowledge_file");

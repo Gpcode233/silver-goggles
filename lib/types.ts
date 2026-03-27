@@ -112,7 +112,7 @@ export type UserRecord = {
   onboardingCompleted: boolean;
 };
 
-export type CreditLedgerKind = "topup" | "run_debit" | "manual_adjustment";
+export type CreditLedgerKind = "topup" | "run_debit" | "creator_earning" | "manual_adjustment";
 
 export type CreditLedgerRecord = {
   id: number;

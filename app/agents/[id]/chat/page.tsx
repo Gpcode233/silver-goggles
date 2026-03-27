@@ -39,6 +39,7 @@ export default async function AgentChatPage({
           cardImageDataUrl={agent.cardImageDataUrl}
           cardGradient={agent.cardGradient}
           initialCredits={user.credits}
+          pricePerRun={agent.pricePerRun}
         />
       </div>
     </main>

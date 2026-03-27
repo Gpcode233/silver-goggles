@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Bot,
   BookmarkPlus,
+  CircleDashed,
   Copy,
   FileImage,
   FileText,
@@ -56,6 +57,10 @@ type ChatSession = {
 
 type RunResult = {
   output: string;
+  run?: {
+    id: number;
+    cost: number;
+  };
   remainingCredits: number;
   compute: {
     mode: string;
@@ -126,6 +131,7 @@ export function ChatClient({
   cardImageDataUrl,
   cardGradient,
   initialCredits,
+  pricePerRun,
 }: {
   agentId: number;
   agentName: string;
@@ -133,6 +139,7 @@ export function ChatClient({
   cardImageDataUrl: string | null;
   cardGradient: AgentCardGradient;
   initialCredits: number;
+  pricePerRun: number;
 }) {
   const [sessions, setSessions] = useState<ChatSession[]>(() => [createSession()]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
@@ -140,7 +147,7 @@ export function ChatClient({
   const [attachments, setAttachments] = useState<AttachmentItem[]>([]);
   const [status, setStatus] = useState<"submitted" | "streaming" | "ready" | "error">("ready");
   const [error, setError] = useState("");
-  const [credits, setCredits] = useState(initialCredits);
+  const [sessionUsedCredits, setSessionUsedCredits] = useState(0);
   const [lastComputeMeta, setLastComputeMeta] = useState<RunResult["compute"] | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
   const [messageFeedback, setMessageFeedback] = useState<Record<string, "liked" | "disliked" | null>>({});
@@ -208,6 +215,7 @@ export function ChatClient({
     });
     setError("");
     setStatus("ready");
+    setSessionUsedCredits(0);
   }, []);
 
   const appendMessageToActiveSession = useCallback(
@@ -282,7 +290,7 @@ export function ChatClient({
           content: payload.output,
           createdAt: Date.now(),
         });
-        setCredits(payload.remainingCredits);
+        setSessionUsedCredits((current) => current + (payload.run?.cost ?? pricePerRun));
         setLastComputeMeta(payload.compute);
         setStatus("ready");
       } catch {
@@ -290,7 +298,7 @@ export function ChatClient({
         setStatus("error");
       }
     },
-    [activeSessionId, agentId, appendMessageToActiveSession, status],
+    [activeSessionId, agentId, appendMessageToActiveSession, pricePerRun, status],
   );
 
   const conversation = activeSession?.messages ?? [];
@@ -306,8 +314,11 @@ export function ChatClient({
           },
         ];
 
-  const requestCount = conversation.filter((message) => message.role === "user").length;
-  const usagePercent = Math.min(100, Math.max(6, Math.round((requestCount / 12) * 100)));
+  const progressBase = Math.max(initialCredits, sessionUsedCredits, pricePerRun || 1, 1);
+  const usagePercent = Math.min(100, Math.round((sessionUsedCredits / progressBase) * 100));
+  const progressRadius = 18;
+  const progressCircumference = 2 * Math.PI * progressRadius;
+  const progressOffset = progressCircumference - (progressCircumference * usagePercent) / 100;
 
   const copyMessage = useCallback(async (messageId: string, content: string) => {
     try {
@@ -623,6 +634,34 @@ export function ChatClient({
             </form>
 
             {error ? <p className="mt-3 text-sm font-semibold text-red-600">{error}</p> : null}
+            <div className="mt-3 flex items-center gap-3 text-slate-500">
+              <div className="relative flex h-11 w-11 items-center justify-center">
+                <svg className="h-11 w-11 -rotate-90" viewBox="0 0 44 44" aria-hidden="true">
+                  <circle cx="22" cy="22" r={progressRadius} fill="none" stroke="rgba(148,163,184,0.22)" strokeWidth="4" />
+                  <circle
+                    cx="22"
+                    cy="22"
+                    r={progressRadius}
+                    fill="none"
+                    stroke="#0f7b94"
+                    strokeWidth="4"
+                    strokeLinecap="round"
+                    strokeDasharray={progressCircumference}
+                    strokeDashoffset={progressOffset}
+                  />
+                </svg>
+                <CircleDashed className="pointer-events-none absolute h-4 w-4 text-slate-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Total Credits Used</p>
+                <p className="text-sm font-semibold text-slate-700">
+                  {formatCredits(sessionUsedCredits)} used in this chat
+                  <span className="ml-2 text-slate-400">
+                    {pricePerRun === 0 ? "Free agent" : `${formatCredits(pricePerRun)} per run`}
+                  </span>
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -687,19 +726,6 @@ export function ChatClient({
             Telegram and WhatsApp handoff will return after the required phone-backed bot and business
             setup is configured.
           </p>
-        </div>
-
-        <div className="mt-7 rounded-[20px] bg-[#16253f] px-4 py-4 text-white">
-          <div className="flex items-center justify-between gap-4">
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Session Usage</p>
-            <p className="text-[15px] font-black text-cyan-300">
-              {requestCount} / {formatCredits(credits)}
-            </p>
-          </div>
-          <div className="mt-3 h-1.5 rounded-full bg-white/10">
-            <div className="h-1.5 rounded-full bg-cyan-400" style={{ width: `${usagePercent}%` }} />
-          </div>
-          <p className="mt-3 text-xs text-slate-400">Credits available: {formatCredits(credits)}</p>
         </div>
 
         <div className="mt-6 space-y-3">

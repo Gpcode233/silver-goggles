@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bot, Gauge, Plus, UserCircle2, Zap } from "lucide-react";
+import { Bot, Gauge, Plus, TrendingUp, UserCircle2 } from "lucide-react";
 
 import {
   getCreditStats,
@@ -70,8 +70,6 @@ export default async function ProfilePage() {
   }
 
   const totalUsedCredits = runs.length > 0 ? Math.max(1, Math.round(creditStats.used)) : 0;
-  const successRate = runs.length > 0 ? `${Math.min(100, 92 + Math.min(runs.length, 8))}.0%` : "N/A";
-
   const purchaseRows = topups.slice(0, 3).map((topup) => ({
     id: `#AJ-${String(882000 + topup.id)}`,
     date: formatPurchaseDate(topup.createdAt),
@@ -191,12 +189,14 @@ export default async function ProfilePage() {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
-                    Success Rate
+                    Creator Earnings
                   </p>
-                  <p className="mt-3 text-[20px] font-black text-slate-950">{successRate}</p>
+                  <p className="mt-3 text-[20px] font-black text-slate-950">
+                    {creditStats.creatorEarned > 0 ? `${formatAmount(creditStats.creatorEarned)} credits` : "No earnings yet"}
+                  </p>
                 </div>
                 <div className="flex h-14 w-14 items-center justify-center rounded-full bg-cyan-50 text-cyan-700">
-                  <Zap className="h-6 w-6" />
+                  <TrendingUp className="h-6 w-6" />
                 </div>
               </div>
             </article>

@@ -635,6 +635,17 @@ export async function runAgentForUser(params: {
       [params.userId, -price, runId, `Agent ${params.agentId} run`],
     );
 
+    if (agent.creator_id !== params.userId && price > 0) {
+      db.run("UPDATE users SET credits = credits + ? WHERE id = ?", [price, agent.creator_id]);
+      db.run(
+        `
+          INSERT INTO credit_ledger (user_id, kind, amount, reference_type, reference_id, note)
+          VALUES (?, 'creator_earning', ?, 'run', ?, ?);
+        `,
+        [agent.creator_id, price, runId, `Creator earnings from agent ${params.agentId}`],
+      );
+    }
+
     const runRow = queryOne<RunRow>(db, "SELECT * FROM runs WHERE id = ?", [runId]);
     const userRow = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [params.userId]);
 
@@ -950,6 +961,7 @@ export async function getCreditStats(userId: number): Promise<{
   remaining: number;
   used: number;
   toppedUp: number;
+  creatorEarned: number;
 }> {
   return withRead((db) => {
     const user = queryOne<UserRow>(db, "SELECT * FROM users WHERE id = ?", [userId]);
@@ -967,11 +979,17 @@ export async function getCreditStats(userId: number): Promise<{
       "SELECT SUM(amount) AS total FROM credit_ledger WHERE user_id = ? AND kind = 'topup'",
       [userId],
     );
+    const creatorEarnedRow = queryOne<{ total: number | null }>(
+      db,
+      "SELECT SUM(amount) AS total FROM credit_ledger WHERE user_id = ? AND kind = 'creator_earning'",
+      [userId],
+    );
 
     return {
       remaining: Number(user.credits),
       used: Number(usedRow?.total ?? 0),
       toppedUp: Number(toppedUpRow?.total ?? 0),
+      creatorEarned: Number(creatorEarnedRow?.total ?? 0),
     };
   });
 }

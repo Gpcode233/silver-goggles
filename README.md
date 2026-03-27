@@ -28,6 +28,10 @@ Users can:
 - create new agents through a form flow or a visual workflow builder
 - top up credits with Interswitch checkout
 
+## Creator Monetization
+
+Ajently currently rewards creators with platform credits when their paid agents are used. This validates the monetization loop inside the marketplace today, while fiat creator payouts are planned as a future upgrade.
+
 ## Interswitch APIs Used
 
 This project uses Interswitch for fiat credit top-up.
@@ -213,4 +217,3 @@ http://localhost:3000
 - Live accessible demo link
 - README with team contributions
 - Working MVP deployed and demo-ready
-

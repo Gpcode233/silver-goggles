@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cardBackgroundImage } from "@/lib/agent-card-visual";
 import { formatCredits } from "@/lib/format";
+import type { AgentCardGradient } from "@/lib/types";
 
 const streamdownPlugins = { cjk, code, math, mermaid };
 
@@ -130,7 +131,7 @@ export function ChatClient({
   agentName: string;
   agentDescription: string;
   cardImageDataUrl: string | null;
-  cardGradient: string;
+  cardGradient: AgentCardGradient;
   initialCredits: number;
 }) {
   const [sessions, setSessions] = useState<ChatSession[]>(() => [createSession()]);

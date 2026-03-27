@@ -1,8 +1,8 @@
 "use client";
 
 import Image from "next/image";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { ConnectButton, useConnectModal } from "@rainbow-me/rainbowkit";
 import { Mail, Wallet } from "lucide-react";
@@ -10,7 +10,7 @@ import { useAccount } from "wagmi";
 
 import AjentlyLogo from "@/assets/Ajently.png";
 
-export default function AuthPage() {
+function AuthScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { status } = useSession();
@@ -231,5 +231,37 @@ export default function AuthPage() {
         </div>
       </section>
     </main>
+  );
+}
+
+function AuthFallback() {
+  return (
+    <main className="grid min-h-screen overflow-y-auto bg-[#f8fafc] lg:grid-cols-[1.02fr_0.98fr]">
+      <section className="flex items-start justify-center px-5 py-8 lg:px-10 lg:py-10">
+        <div className="w-full max-w-[480px]">
+          <div className="flex items-center gap-3">
+            <Image src={AjentlyLogo} alt="Ajently" className="h-10 w-auto" priority />
+            <span className="text-[30px] font-black tracking-tight text-slate-950">Ajently</span>
+          </div>
+          <div className="mt-10">
+            <p className="inline-flex rounded-full bg-sky-100 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-sky-700">
+              Access Workspace
+            </p>
+            <h1 className="mt-5 text-4xl font-black tracking-[-0.05em] text-slate-950 lg:text-[58px] lg:leading-[0.94]">
+              Sign in to access Ajently.
+            </h1>
+          </div>
+        </div>
+      </section>
+      <section className="hidden bg-[linear-gradient(160deg,#0f172a,#112b49_55%,#0d7490)] lg:flex lg:min-h-screen lg:flex-col lg:justify-between lg:px-12 lg:py-12" />
+    </main>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<AuthFallback />}>
+      <AuthScreen />
+    </Suspense>
   );
 }

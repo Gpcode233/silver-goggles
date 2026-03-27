@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowUpRight,
   Bot,
   BookmarkPlus,
   Copy,
@@ -11,7 +10,6 @@ import {
   FileText,
   HelpCircle,
   History,
-  MessageCircle,
   Mic,
   Paperclip,
   SendHorizonal,
@@ -118,15 +116,6 @@ function buildMessageWithAttachments(text: string, attachments: AttachmentItem[]
   return trimmed
     ? `${trimmed}\n\nAttached files: ${attachmentSummary}`
     : `Please use these attached files as context: ${attachmentSummary}`;
-}
-
-function buildPlatformHandoffText(agentName: string, latestMessage?: string) {
-  const trimmed = latestMessage?.trim();
-  if (!trimmed) {
-    return `Continue my ${agentName} conversation from Ajently.`;
-  }
-  const excerpt = trimmed.length > 220 ? `${trimmed.slice(0, 220)}...` : trimmed;
-  return `Continue my ${agentName} conversation from Ajently.\n\nLatest message:\n${excerpt}`;
 }
 
 export function ChatClient({
@@ -316,7 +305,6 @@ export function ChatClient({
           },
         ];
 
-  const latestUserMessage = [...conversation].reverse().find((message) => message.role === "user")?.content;
   const requestCount = conversation.filter((message) => message.role === "user").length;
   const usagePercent = Math.min(100, Math.max(6, Math.round((requestCount / 12) * 100)));
 
@@ -347,30 +335,6 @@ export function ChatClient({
       setError("Failed to share message");
     }
   }, [agentName]);
-
-  function openTelegram() {
-    const text = buildPlatformHandoffText(agentName, latestUserMessage);
-    const directBot = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.trim();
-    const url = directBot
-      ? new URL(`https://t.me/${directBot}`)
-      : new URL("https://t.me/share/url");
-    if (directBot) {
-      url.searchParams.set("start", encodeURIComponent(`${agentId}:${text}`));
-    } else {
-      url.searchParams.set("url", window.location.href);
-      url.searchParams.set("text", text);
-    }
-    window.open(url.toString(), "_blank", "noopener,noreferrer");
-  }
-
-  function openWhatsApp() {
-    const text = `${buildPlatformHandoffText(agentName, latestUserMessage)}\n\n${window.location.href}`;
-    const directNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER?.trim();
-    const base = directNumber ? `https://wa.me/${directNumber.replace(/\D/g, "")}` : "https://wa.me/";
-    const url = new URL(base);
-    url.searchParams.set("text", text);
-    window.open(url.toString(), "_blank", "noopener,noreferrer");
-  }
 
   return (
     <div className="grid h-[calc(100vh-74px)] grid-cols-1 overflow-hidden xl:grid-cols-[minmax(0,1fr)_280px]">
@@ -694,52 +658,33 @@ export function ChatClient({
         <div className="mt-7">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Continue on another platform</p>
           <div className="mt-3 space-y-3">
-            <button
-              type="button"
-              onClick={openTelegram}
-              className="flex w-full items-center justify-between rounded-[16px] bg-white px-4 py-3 text-left shadow-sm transition hover:bg-slate-50"
-            >
+            <div className="flex w-full items-center rounded-[16px] bg-white px-4 py-3 text-left shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-sky-700">
-                  <MessageCircle className="h-4 w-4" />
+                  <Paperclip className="h-4 w-4" />
                 </div>
                 <div>
                   <p className="text-[14px] font-bold text-slate-900">Telegram</p>
-                  <p className="text-xs text-slate-500">
-                    {process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME
-                      ? "Open your Telegram bot handoff"
-                      : "Open a handoff with your latest context"}
-                  </p>
+                  <p className="text-xs text-slate-500">Coming soon</p>
                 </div>
               </div>
-              <ArrowUpRight className="h-4 w-4 text-slate-400" />
-            </button>
+            </div>
 
-            <button
-              type="button"
-              onClick={openWhatsApp}
-              className="flex w-full items-center justify-between rounded-[16px] bg-white px-4 py-3 text-left shadow-sm transition hover:bg-slate-50"
-            >
+            <div className="flex w-full items-center rounded-[16px] bg-white px-4 py-3 text-left shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-sky-700">
-                  <MessageCircle className="h-4 w-4" />
+                  <Paperclip className="h-4 w-4" />
                 </div>
                 <div>
                   <p className="text-[14px] font-bold text-slate-900">WhatsApp</p>
-                  <p className="text-xs text-slate-500">
-                    {process.env.NEXT_PUBLIC_WHATSAPP_NUMBER
-                      ? "Open your WhatsApp handoff line"
-                      : "Continue with a prefilled context message"}
-                  </p>
+                  <p className="text-xs text-slate-500">Coming soon</p>
                 </div>
               </div>
-              <ArrowUpRight className="h-4 w-4 text-slate-400" />
-            </button>
+            </div>
           </div>
           <p className="mt-3 text-[11px] leading-5 text-slate-500">
-            Two-way native agent conversations on Telegram or WhatsApp still require a bot or webhook
-            backend. These controls now hand off directly to your configured Telegram bot or WhatsApp
-            line when those env vars are present.
+            Telegram and WhatsApp handoff will return after the required phone-backed bot and business
+            setup is configured.
           </p>
         </div>
 

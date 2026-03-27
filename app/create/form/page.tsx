@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 import { cardBackgroundImage } from "@/lib/agent-card-visual";
-import { AGENT_CARD_GRADIENTS, AGENT_CATEGORIES, AGENT_MODEL_BADGES, AGENT_MODELS } from "@/lib/types";
+import { AGENT_CARD_GRADIENTS, AGENT_CATEGORIES, AGENT_MODELS } from "@/lib/types";
 
 type CreateResponse = {
   agent?: { id: number };
@@ -343,13 +343,7 @@ export default function CreateAgentFormPage() {
                 checked={publishNow}
                 onChange={(event) => setPublishNow(event.currentTarget.checked)}
               />
-              <select name="model" value={AGENT_MODELS[0]} readOnly>
-                {AGENT_MODELS.map((model) => (
-                  <option key={model} value={model}>
-                    {model} - {AGENT_MODEL_BADGES[model]}
-                  </option>
-                ))}
-              </select>
+              <input type="hidden" name="model" value={AGENT_MODELS[0]} />
               <select
                 name="card_gradient"
                 value={cardGradient}

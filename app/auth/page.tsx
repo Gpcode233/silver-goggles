@@ -63,7 +63,11 @@ export default function AuthPage() {
               onClick={() => {
                 setSubmitting(true);
                 setError("");
-                void signIn("google", { callbackUrl: "/auth/google-complete" });
+                void signIn(
+                  "google",
+                  { callbackUrl: "/auth/google-complete" },
+                  { prompt: "select_account" },
+                );
               }}
               className="flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3.5 text-[17px] font-bold text-slate-900 transition hover:bg-slate-50 disabled:opacity-60"
             >

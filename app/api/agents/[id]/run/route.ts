@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
 
 import {
-  DEMO_USER_ID,
   getAgentById,
   readKnowledgeFromLocal,
   runAgentForUser,
 } from "@/lib/agent-service";
+import { getCurrentUserId } from "@/lib/auth";
 import { runAgentSchema } from "@/lib/validation";
 import { runInference } from "@/lib/zero-g/compute";
 import { downloadText } from "@/lib/zero-g/storage";
@@ -39,12 +39,15 @@ export async function POST(
   let knowledge = "";
   try {
     if (agent.knowledgeUri) {
-      knowledge = await downloadText(agent.knowledgeUri);
-    } else if (agent.published && agent.knowledgeLocalPath) {
-      return NextResponse.json(
-        { error: "Published agent is missing a 0G knowledge URI" },
-        { status: 500 },
-      );
+      try {
+        knowledge = await downloadText(agent.knowledgeUri);
+      } catch {
+        if (agent.knowledgeLocalPath) {
+          knowledge = await readKnowledgeFromLocal(agent);
+        } else {
+          throw new Error("Failed to load knowledge from storage");
+        }
+      }
     } else if (agent.knowledgeLocalPath) {
       knowledge = await readKnowledgeFromLocal(agent);
     }
@@ -73,8 +76,12 @@ export async function POST(
   }
 
   try {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     const { run, user } = await runAgentForUser({
-      userId: DEMO_USER_ID,
+      userId,
       agentId,
       input: payload.data.message,
       output: inference.output,

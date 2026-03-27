@@ -1,4 +1,4 @@
-import type { ComputeResult } from "@/lib/types";
+import { DEFAULT_TEXT_AGENT_MODEL, type ComputeResult } from "@/lib/types";
 import type { InferenceServingRequestHeaders } from "@0glabs/0g-serving-broker";
 
 type ServiceResponse = {
@@ -55,8 +55,7 @@ function openRouterEnabled(): boolean {
 }
 
 function resolveOpenRouterModel(requestedModel?: string): string {
-  const fallbackModel =
-    process.env.OPENROUTER_DEFAULT_MODEL?.trim() || "meta-llama/llama-3.2-3b-instruct:free";
+  const fallbackModel = process.env.OPENROUTER_DEFAULT_MODEL?.trim() || DEFAULT_TEXT_AGENT_MODEL;
   const model = requestedModel?.trim() || fallbackModel;
   const imageOnlyModels = new Set([
     "google/gemini-2.5-flash-image",
@@ -232,6 +231,10 @@ export async function runInference(params: {
   userInput: string;
   model?: string;
 }): Promise<ComputeResult> {
+  if (openRouterEnabled()) {
+    return runOpenRouterInference(params);
+  }
+
   if (realComputeEnabled()) {
     const { providerAddress, endpoint, model: serviceModel, broker } = await resolveService();
     const selectedModel = params.model?.trim() || serviceModel;
@@ -281,20 +284,16 @@ export async function runInference(params: {
     };
   }
 
-  if (openRouterEnabled()) {
-    return runOpenRouterInference(params);
-  }
-
   return runMockInference(params.systemPrompt, params.knowledge, params.userInput, params.model);
 }
 
 export function computeMode(): "real" | "openrouter" | "mock" {
-  if (realComputeEnabled()) {
-    return "real";
-  }
-
   if (openRouterEnabled()) {
     return "openrouter";
+  }
+
+  if (realComputeEnabled()) {
+    return "real";
   }
 
   return "mock";

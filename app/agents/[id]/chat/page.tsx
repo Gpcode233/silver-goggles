@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { ChatClient } from "@/components/chat-client";
-import { DEMO_USER_ID, getAgentById, getUserById } from "@/lib/agent-service";
+import { getCurrentUserId } from "@/lib/auth";
+import { getAgentById, getUserById } from "@/lib/agent-service";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,12 @@ export default async function AgentChatPage({
     notFound();
   }
 
-  const [agent, user] = await Promise.all([getAgentById(agentId), getUserById(DEMO_USER_ID)]);
+  const userId = await getCurrentUserId();
+  if (!userId) {
+    notFound();
+  }
+
+  const [agent, user] = await Promise.all([getAgentById(agentId), getUserById(userId)]);
 
   if (!agent || !user) {
     notFound();
@@ -26,7 +32,14 @@ export default async function AgentChatPage({
   return (
     <main>
       <div className="-mx-4 sm:-mx-6 lg:-mx-8">
-        <ChatClient agentId={agent.id} agentName={agent.name} initialCredits={user.credits} />
+        <ChatClient
+          agentId={agent.id}
+          agentName={agent.name}
+          agentDescription={agent.description}
+          cardImageDataUrl={agent.cardImageDataUrl}
+          cardGradient={agent.cardGradient}
+          initialCredits={user.credits}
+        />
       </div>
     </main>
   );

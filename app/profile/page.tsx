@@ -18,11 +18,17 @@ function formatAmount(value: number) {
 }
 
 function formatWallet(address: string) {
+  if (!address || address.length < 10) {
+    return address || "No wallet";
+  }
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
 function formatRelativeTime(value: string) {
   const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) {
+    return "Recently";
+  }
   const diffMs = Date.now() - timestamp;
   const diffMinutes = Math.max(1, Math.round(diffMs / 60000));
 
@@ -40,7 +46,11 @@ function formatRelativeTime(value: string) {
 }
 
 function formatPurchaseDate(value: string) {
-  return new Date(value).toLocaleDateString(undefined, {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return "Unknown date";
+  }
+  return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
     year: "numeric",

@@ -28,6 +28,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { AGENT_CATEGORIES } from "@/lib/types";
 
 gsap.registerPlugin(Draggable);
 
@@ -272,6 +273,8 @@ export default function CreateAgentBuilderPage() {
   const [connectingFromId, setConnectingFromId] = useState<string | null>(null);
   const [status, setStatus] = useState<"Draft" | "Published">("Draft");
   const [agentName, setAgentName] = useState("Untitled");
+  const [agentCategory, setAgentCategory] = useState<(typeof AGENT_CATEGORIES)[number]>("Productivity");
+  const [pricePerRun, setPricePerRun] = useState("12");
   const [zoom, setZoom] = useState(1);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
@@ -412,6 +415,8 @@ export default function CreateAgentBuilderPage() {
     setConnectingFromId(null);
     setStatus("Draft");
     setAgentName("Untitled");
+    setAgentCategory("Productivity");
+    setPricePerRun("12");
     setCanvasZoom(1);
   }, [setCanvasZoom]);
 
@@ -514,10 +519,10 @@ export default function CreateAgentBuilderPage() {
     const formData = new FormData();
     formData.set("name", agentName.trim() || "Untitled");
     formData.set("description", deriveAgentDescription(nodesRef.current));
-    formData.set("category", "Productivity");
+    formData.set("category", agentCategory);
     formData.set("model", "openai/gpt-oss-120b:free");
     formData.set("system_prompt", activeNode?.systemPrompt || "Execute the configured workflow accurately.");
-    formData.set("price_per_run", "12");
+    formData.set("price_per_run", pricePerRun || "0");
     formData.set("card_gradient", "ocean");
     formData.set("publish_now", "true");
 
@@ -544,7 +549,7 @@ export default function CreateAgentBuilderPage() {
       setPublishError(error instanceof Error ? error.message : "Failed to publish agent");
       setPublishing(false);
     }
-  }, [activeNode?.systemPrompt, agentName, canPublish, publishing, router]);
+  }, [activeNode?.systemPrompt, agentCategory, agentName, canPublish, pricePerRun, publishing, router]);
 
   return (
     <main className="h-screen overflow-hidden bg-white">
@@ -617,6 +622,33 @@ export default function CreateAgentBuilderPage() {
               {publishError ? <span className="rounded-md bg-red-50 px-3 py-1 text-xs font-bold text-red-600">{publishError}</span> : null}
             </div>
             <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <select
+                  value={agentCategory}
+                  onChange={(e) => setAgentCategory(e.currentTarget.value as (typeof AGENT_CATEGORIES)[number])}
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none"
+                  aria-label="Agent category"
+                >
+                  {AGENT_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+                <label className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">
+                  <span>Credits</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="1000"
+                    step="1"
+                    value={pricePerRun}
+                    onChange={(e) => setPricePerRun(e.currentTarget.value)}
+                    className="w-16 bg-transparent text-right outline-none"
+                    aria-label="Credits per run"
+                  />
+                </label>
+              </div>
               <button
                 type="button"
                 disabled={!canPublish}

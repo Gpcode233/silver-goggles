@@ -106,6 +106,7 @@ export async function POST(request: Request) {
     pricePerRun: payload.data.pricePerRun,
     cardImageDataUrl,
     cardGradient: payload.data.cardGradient,
+    published: payload.data.publishNow,
     creatorId: userId,
   });
 
@@ -140,11 +141,11 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       {
-        error: toPublishErrorMessage(error),
-        published: false,
-        agentId: agent.id,
+        agent,
+        published: true,
+        storageWarning: toPublishErrorMessage(error),
       },
-      { status: 502 },
+      { status: 201 },
     );
   }
 }

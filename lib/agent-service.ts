@@ -113,11 +113,7 @@ function mapAgent(row: AgentRow): AgentRecord {
     cardGradient: row.card_gradient,
     knowledgeLocalPath: row.knowledge_local_path,
     knowledgeFilename: row.knowledge_filename,
-    published:
-      row.published === 1 &&
-      Boolean(row.storage_hash) &&
-      Boolean(row.manifest_uri) &&
-      Boolean(row.manifest_tx_hash),
+    published: row.published === 1,
     createdAt: row.created_at,
   };
 }
@@ -185,9 +181,7 @@ export async function listAgents(options: {
   const params: Array<number | string | Uint8Array | null> = [];
 
   if (!options.includeDrafts) {
-    where.push(
-      "published = 1 AND storage_hash IS NOT NULL AND manifest_uri IS NOT NULL AND manifest_tx_hash IS NOT NULL",
-    );
+    where.push("published = 1");
   }
 
   if (options.search?.trim()) {
@@ -249,6 +243,7 @@ export async function createAgent(input: {
   pricePerRun: number;
   cardImageDataUrl: string | null;
   cardGradient: AgentCardGradient;
+  published?: boolean;
   creatorId?: number;
 }): Promise<AgentRecord> {
   return withWrite((db) => {
@@ -263,9 +258,10 @@ export async function createAgent(input: {
           card_image_data_url,
           card_gradient,
           creator_id,
-          price_per_run
+          price_per_run,
+          published
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
       `,
       [
         input.name,
@@ -277,6 +273,7 @@ export async function createAgent(input: {
         input.cardGradient,
         input.creatorId ?? DEMO_USER_ID,
         input.pricePerRun,
+        input.published ? 1 : 0,
       ],
     );
 

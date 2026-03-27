@@ -1,18 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function GoogleCompletePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
+    const nextPath = searchParams.get("next") || "/";
 
     async function complete() {
       const response = await fetch("/api/auth/google/complete", {
         method: "POST",
+        credentials: "same-origin",
       });
 
       const data = (await response.json()) as {
@@ -28,7 +31,7 @@ export default function GoogleCompletePage() {
       }
 
       if (!cancelled) {
-        router.replace(data.user?.onboardingCompleted ? "/" : "/onboarding");
+        router.replace(data.user?.onboardingCompleted ? nextPath : "/onboarding");
         router.refresh();
       }
     }
@@ -38,7 +41,7 @@ export default function GoogleCompletePage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, searchParams]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f8fafc] px-6">

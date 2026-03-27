@@ -8,7 +8,7 @@ const PUBLIC_PATHS = ["/auth", "/auth/google-complete"];
 const ONBOARDING_PATH = "/onboarding";
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, search } = request.nextUrl;
 
   if (
     pathname.startsWith("/_next") ||
@@ -27,7 +27,12 @@ export function middleware(request: NextRequest) {
   const onboarded = request.cookies.get(ONBOARDING_COOKIE)?.value === "1";
 
   if (!hasSession && !PUBLIC_PATHS.includes(pathname)) {
-    return NextResponse.redirect(new URL("/auth", request.url));
+    const authUrl = new URL("/auth", request.url);
+    const next = `${pathname}${search}`;
+    if (next && next !== "/") {
+      authUrl.searchParams.set("next", next);
+    }
+    return NextResponse.redirect(authUrl);
   }
 
   if (hasSession && !onboarded && pathname !== ONBOARDING_PATH) {

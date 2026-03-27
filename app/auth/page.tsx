@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { signIn, useSession } from "next-auth/react";
 import { ConnectButton, useConnectModal } from "@rainbow-me/rainbowkit";
 import { Mail, Wallet } from "lucide-react";
 import { useAccount } from "wagmi";
@@ -12,6 +12,8 @@ import AjentlyLogo from "@/assets/Ajently.png";
 
 export default function AuthPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { status } = useSession();
   const { address, isConnected } = useAccount();
   const { openConnectModal } = useConnectModal();
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -19,6 +21,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const nextPath = useMemo(() => searchParams.get("next") || "/", [searchParams]);
 
   async function authenticate(payload: Record<string, string>) {
     setSubmitting(true);
@@ -34,9 +37,51 @@ export default function AuthPage() {
       setSubmitting(false);
       return;
     }
-    router.push(data.user?.onboardingCompleted ? "/" : "/onboarding");
+    router.push(data.user?.onboardingCompleted ? nextPath : "/onboarding");
     router.refresh();
   }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function recoverGoogleSession() {
+      if (status !== "authenticated") {
+        return;
+      }
+
+      setSubmitting(true);
+      setError("");
+
+      const response = await fetch("/api/auth/google/complete", {
+        method: "POST",
+        credentials: "same-origin",
+      });
+
+      const data = (await response.json()) as {
+        error?: string;
+        user?: { onboardingCompleted?: boolean };
+      };
+
+      if (cancelled) {
+        return;
+      }
+
+      if (!response.ok) {
+        setError(data.error ?? "Unable to continue with Google");
+        setSubmitting(false);
+        return;
+      }
+
+      router.replace(data.user?.onboardingCompleted ? nextPath : "/onboarding");
+      router.refresh();
+    }
+
+    void recoverGoogleSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [nextPath, router, status]);
 
   return (
     <main className="grid min-h-screen overflow-y-auto bg-[#f8fafc] lg:grid-cols-[1.02fr_0.98fr]">
@@ -65,7 +110,7 @@ export default function AuthPage() {
                 setError("");
                 void signIn(
                   "google",
-                  { callbackUrl: "/auth/google-complete" },
+                  { callbackUrl: `/auth/google-complete${nextPath && nextPath !== "/" ? `?next=${encodeURIComponent(nextPath)}` : ""}` },
                   { prompt: "select_account" },
                 );
               }}

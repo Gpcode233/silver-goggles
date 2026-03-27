@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -18,59 +18,15 @@ type ConfirmResponse = {
 
 export const dynamic = "force-dynamic";
 
-export default function CreditsConfirmPage() {
-  const searchParams = useSearchParams();
-  const orderId = searchParams.get("orderId");
-  const missingOrderId = !orderId;
-  const [loading, setLoading] = useState(!missingOrderId);
-  const [payload, setPayload] = useState<ConfirmResponse | null>(null);
-
-  useEffect(() => {
-    if (missingOrderId) {
-      return;
-    }
-
-    let cancelled = false;
-
-    async function confirmPayment() {
-      setLoading(true);
-      const response = await fetch(`/api/credits/${orderId}/confirm`, { method: "POST" });
-      const result = (await response.json()) as ConfirmResponse;
-      if (cancelled) {
-        return;
-      }
-      setPayload(
-        response.ok
-          ? result
-          : {
-              state: "failed",
-              gateway: { code: null, description: null, paymentReference: null },
-              error: result.error ?? "Failed to confirm payment.",
-            },
-      );
-      setLoading(false);
-    }
-
-    void confirmPayment();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [missingOrderId, orderId]);
-
-  const resolvedPayload =
-    missingOrderId && !payload
-      ? {
-          state: "failed" as const,
-          gateway: {
-            code: null,
-            description: null,
-            paymentReference: null,
-          },
-          error: "Missing top-up order id.",
-        }
-      : payload;
-
+function ConfirmationCard({
+  loading,
+  resolvedPayload,
+  orderId,
+}: {
+  loading: boolean;
+  resolvedPayload: ConfirmResponse | (ConfirmResponse & { error?: string }) | null;
+  orderId: string | null;
+}) {
   return (
     <main className="mx-auto max-w-2xl px-4 py-16">
       <div className="rounded-3xl border border-ink/15 bg-white/80 p-8 shadow-sm">
@@ -129,5 +85,71 @@ export default function CreditsConfirmPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function CreditsConfirmContent() {
+  const searchParams = useSearchParams();
+  const orderId = searchParams.get("orderId");
+  const missingOrderId = !orderId;
+  const [loading, setLoading] = useState(!missingOrderId);
+  const [payload, setPayload] = useState<ConfirmResponse | null>(null);
+
+  useEffect(() => {
+    if (missingOrderId) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function confirmPayment() {
+      setLoading(true);
+      const response = await fetch(`/api/credits/${orderId}/confirm`, { method: "POST" });
+      const result = (await response.json()) as ConfirmResponse;
+      if (cancelled) {
+        return;
+      }
+      setPayload(
+        response.ok
+          ? result
+          : {
+              state: "failed",
+              gateway: { code: null, description: null, paymentReference: null },
+              error: result.error ?? "Failed to confirm payment.",
+            },
+      );
+      setLoading(false);
+    }
+
+    void confirmPayment();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [missingOrderId, orderId]);
+
+  const resolvedPayload =
+    missingOrderId && !payload
+      ? {
+          state: "failed" as const,
+          gateway: {
+            code: null,
+            description: null,
+            paymentReference: null,
+          },
+          error: "Missing top-up order id.",
+        }
+      : payload;
+
+  return (
+    <ConfirmationCard loading={loading} resolvedPayload={resolvedPayload} orderId={orderId} />
+  );
+}
+
+export default function CreditsConfirmPage() {
+  return (
+    <Suspense fallback={<ConfirmationCard loading resolvedPayload={null} orderId={null} />}>
+      <CreditsConfirmContent />
+    </Suspense>
   );
 }

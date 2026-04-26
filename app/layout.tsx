@@ -1,0 +1,42 @@
+import type { Metadata } from "next";
+import { Bricolage_Grotesque, Space_Mono } from "next/font/google";
+
+import favicon from "@/assets/favicon.ico";
+import { AppShell } from "@/components/app-shell";
+import { Providers } from "@/components/providers";
+
+import "./globals.css";
+
+const displayFont = Bricolage_Grotesque({
+  subsets: ["latin"],
+  variable: "--font-display",
+});
+
+const monoFont = Space_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  weight: ["400", "700"],
+});
+
+export const metadata: Metadata = {
+  title: "Ajently",
+  description:
+    "Publish, discover, and run AI agents on decentralized 0G Compute + 0G Storage.",
+  icons: {
+    icon: [{ url: favicon.src, type: "image/ico" }],
+    shortcut: [{ url: favicon.src, type: "image/ico" }],
+    apple: [{ url: favicon.src, type: "image/ico" }],
+  },
+};
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="en">
+      <body className={`${displayFont.variable} ${monoFont.variable} antialiased`}>
+        <Providers>
+          <AppShell>{children}</AppShell>
+        </Providers>
+      </body>
+    </html>
+  );
+}

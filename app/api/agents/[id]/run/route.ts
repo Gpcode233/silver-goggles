@@ -1,0 +1,116 @@
+import { NextResponse } from "next/server";
+
+import {
+  getAgentById,
+  readKnowledgeFromLocal,
+  runAgentForUser,
+} from "@/lib/agent-service";
+import { getCurrentUserId } from "@/lib/auth";
+import { runAgentSchema } from "@/lib/validation";
+import { runInference } from "@/lib/zero-g/compute";
+import { archiveRunToZeroG } from "@/lib/zero-g/run-archive";
+import { downloadText } from "@/lib/zero-g/storage";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const agentId = Number(id);
+
+  if (!Number.isInteger(agentId) || agentId <= 0) {
+    return NextResponse.json({ error: "Invalid agent id" }, { status: 400 });
+  }
+
+  const payload = runAgentSchema.safeParse(await request.json());
+  if (!payload.success) {
+    return NextResponse.json(
+      { error: "Invalid message", details: payload.error.flatten() },
+      { status: 400 },
+    );
+  }
+
+  const agent = await getAgentById(agentId);
+  if (!agent) {
+    return NextResponse.json({ error: "Agent not found" }, { status: 404 });
+  }
+
+  let knowledge = "";
+  try {
+    if (agent.knowledgeUri) {
+      try {
+        knowledge = await downloadText(agent.knowledgeUri);
+      } catch {
+        if (agent.knowledgeLocalPath) {
+          knowledge = await readKnowledgeFromLocal(agent);
+        } else {
+          throw new Error("Failed to load knowledge from storage");
+        }
+      }
+    } else if (agent.knowledgeLocalPath) {
+      knowledge = await readKnowledgeFromLocal(agent);
+    }
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Failed to load knowledge from storage",
+      },
+      { status: 500 },
+    );
+  }
+
+  let inference;
+  try {
+    inference = await runInference({
+      systemPrompt: agent.systemPrompt,
+      knowledge,
+      userInput: payload.data.message,
+      model: agent.model,
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "0G compute call failed" },
+      { status: 500 },
+    );
+  }
+
+  try {
+    const userId = await getCurrentUserId();
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const { run, user } = await runAgentForUser({
+      userId,
+      agentId,
+      input: payload.data.message,
+      output: inference.output,
+      computeMode: inference.mode,
+    });
+
+    // Fire-and-forget: archive the completed run to 0G Storage so every
+    // interaction has a verifiable on-chain receipt. Don't block the user's
+    // response on this — the runs row records archive_status itself.
+    void archiveRunToZeroG(run.id);
+
+    return NextResponse.json({
+      output: inference.output,
+      run,
+      remainingCredits: user.credits,
+      compute: {
+        mode: inference.mode,
+        model: inference.model,
+        providerAddress: inference.providerAddress,
+      },
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "INSUFFICIENT_CREDITS") {
+      return NextResponse.json({ error: "Insufficient credits" }, { status: 402 });
+    }
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Failed to save run" },
+      { status: 500 },
+    );
+  }
+}

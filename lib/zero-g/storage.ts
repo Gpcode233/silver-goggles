@@ -1,0 +1,315 @@
+import crypto from "node:crypto";
+import fs from "node:fs/promises";
+import path from "node:path";
+
+import { resolveDataPath } from "@/lib/data-dir";
+
+export type UploadResult = {
+  rootHash: string;
+  uri: string;
+  transactionHash: string | null;
+  mode: "real" | "mock";
+};
+
+type UploadOptions = {
+  requireReal?: boolean;
+};
+
+type UploadReceipt = Awaited<ReturnType<import("@0gfoundation/0g-ts-sdk").Indexer["upload"]>>[0];
+
+const MOCK_STORAGE_DIR = resolveDataPath("mock-storage");
+const DOWNLOAD_DIR = resolveDataPath("downloads");
+
+let storageSdkPromise: Promise<{
+  Indexer: typeof import("@0gfoundation/0g-ts-sdk").Indexer;
+  MemData: typeof import("@0gfoundation/0g-ts-sdk").MemData;
+}> | null = null;
+let storageSignerPromise: Promise<{
+  indexer: import("@0gfoundation/0g-ts-sdk").Indexer;
+  signer: import("ethers").Wallet;
+}> | null = null;
+
+async function loadStorageSdk() {
+  if (!storageSdkPromise) {
+    storageSdkPromise = import("@0gfoundation/0g-ts-sdk").then(({ Indexer, MemData }) => ({
+      Indexer,
+      MemData,
+    }));
+  }
+  return storageSdkPromise;
+}
+
+function getRootHashFromUri(uri: string): string {
+  const normalized = uri.trim();
+  if (normalized.startsWith("0g://")) {
+    return normalized.slice("0g://".length);
+  }
+  return normalized;
+}
+
+function realStorageEnabled(): boolean {
+  return (
+    process.env.ZERO_G_STORAGE_MODE === "real" &&
+    Boolean(process.env.ZERO_G_STORAGE_INDEXER_RPC) &&
+    Boolean(process.env.ZERO_G_EVM_RPC) &&
+    Boolean(process.env.ZERO_G_PRIVATE_KEY)
+  );
+}
+
+function realStorageConfigIssues(): string[] {
+  const issues: string[] = [];
+  if (process.env.ZERO_G_STORAGE_MODE !== "real") {
+    issues.push("ZERO_G_STORAGE_MODE must be set to 'real'");
+  }
+  if (!process.env.ZERO_G_STORAGE_INDEXER_RPC) {
+    issues.push("ZERO_G_STORAGE_INDEXER_RPC is missing");
+  }
+  if (!process.env.ZERO_G_EVM_RPC) {
+    issues.push("ZERO_G_EVM_RPC is missing");
+  }
+  if (!process.env.ZERO_G_PRIVATE_KEY) {
+    issues.push("ZERO_G_PRIVATE_KEY is missing");
+  }
+  return issues;
+}
+
+export function getRealStorageConfigError(): string | null {
+  const issues = realStorageConfigIssues();
+  if (issues.length === 0) {
+    return null;
+  }
+  return `Real 0G Storage is required but not configured: ${issues.join("; ")}`;
+}
+
+function allowMockFallback(): boolean {
+  const value = process.env.ZERO_G_STORAGE_FALLBACK_TO_MOCK;
+  if (value === undefined) {
+    return false;
+  }
+  return value === "true";
+}
+
+async function getStorageClients() {
+  if (!storageSignerPromise) {
+    storageSignerPromise = (async () => {
+      const [{ Indexer }, { JsonRpcProvider, Wallet }] = await Promise.all([
+        loadStorageSdk(),
+        import("ethers"),
+      ]);
+      const indexer = new Indexer(process.env.ZERO_G_STORAGE_INDEXER_RPC!);
+      const provider = new JsonRpcProvider(process.env.ZERO_G_EVM_RPC!);
+      const signer = new Wallet(process.env.ZERO_G_PRIVATE_KEY!, provider);
+      return { indexer, signer };
+    })();
+  }
+  return storageSignerPromise;
+}
+
+async function uploadBytesToMockStorage(data: Uint8Array): Promise<UploadResult> {
+  await fs.mkdir(MOCK_STORAGE_DIR, { recursive: true });
+  const rootHash = crypto.createHash("sha256").update(data).digest("hex");
+  const filePath = path.join(MOCK_STORAGE_DIR, rootHash);
+  await fs.writeFile(filePath, data);
+  return { rootHash, uri: `0g://${rootHash}`, transactionHash: null, mode: "mock" };
+}
+
+const UPLOAD_MAX_ATTEMPTS = 3;
+const UPLOAD_BACKOFF_MS = [0, 1500, 4000];
+
+function isTransientUploadError(message: string): boolean {
+  return (
+    message.includes("execution reverted") ||
+    message.includes("CALL_EXCEPTION") ||
+    message.includes("nonce") ||
+    message.includes("replacement transaction underpriced") ||
+    message.includes("already known") ||
+    message.includes("ECONNRESET") ||
+    message.includes("ETIMEDOUT")
+  );
+}
+
+function looksLikeFundingRevert(message: string): boolean {
+  return message.includes("estimateGas") || message.includes("insufficient funds");
+}
+
+async function uploadBytesToRealStorage(data: Uint8Array): Promise<UploadResult> {
+  const [{ MemData }, { indexer, signer }] = await Promise.all([
+    loadStorageSdk(),
+    getStorageClients(),
+  ]);
+
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < UPLOAD_MAX_ATTEMPTS; attempt++) {
+    if (UPLOAD_BACKOFF_MS[attempt] > 0) {
+      await new Promise((resolve) => setTimeout(resolve, UPLOAD_BACKOFF_MS[attempt]));
+    }
+
+    // Each attempt rebuilds the payload + merkle tree from scratch so we don't
+    // reuse SDK state from a failed submission.
+    const payload = new MemData(data);
+    const [, treeError] = await payload.merkleTree();
+    if (treeError) {
+      throw new Error(`Merkle tree error: ${treeError.message}`);
+    }
+
+    try {
+      const [receipt, error] = await indexer.upload(
+        payload,
+        process.env.ZERO_G_EVM_RPC!,
+        signer as never,
+      );
+
+      if (error || !receipt) {
+        const message = error?.message ?? "0G storage upload failed";
+        lastError = new Error(message);
+        if (isTransientUploadError(message) && attempt < UPLOAD_MAX_ATTEMPTS - 1) {
+          continue;
+        }
+        throw lastError;
+      }
+
+      const rootHash = "rootHash" in receipt ? receipt.rootHash : receipt.rootHashes[0];
+      const txHash = "txHash" in receipt ? receipt.txHash : receipt.txHashes[0] ?? null;
+      if (!rootHash) {
+        throw new Error("0G storage upload returned no root hash");
+      }
+      return {
+        rootHash,
+        uri: `0g://${rootHash}`,
+        transactionHash: txHash,
+        mode: "real",
+      };
+    } catch (uploadError) {
+      const message = uploadError instanceof Error ? uploadError.message : String(uploadError);
+      lastError = uploadError instanceof Error ? uploadError : new Error(message);
+
+      if (looksLikeFundingRevert(message)) {
+        throw new Error(
+          `0G Storage transaction reverted for server signer ${signer.address}. ` +
+            "Fund this wallet on 0G testnet and verify ZERO_G_EVM_RPC / ZERO_G_STORAGE_INDEXER_RPC.",
+        );
+      }
+
+      if (!isTransientUploadError(message) || attempt === UPLOAD_MAX_ATTEMPTS - 1) {
+        throw new Error(`0G storage upload failed: ${message}`);
+      }
+      // Otherwise loop and retry.
+    }
+  }
+
+  throw lastError ?? new Error("0G storage upload failed after retries");
+}
+
+export async function uploadManifest(
+  manifest: object,
+  options: UploadOptions = {},
+): Promise<UploadResult> {
+  const requireReal = options.requireReal ?? false;
+  const body = Buffer.from(JSON.stringify(manifest, null, 2), "utf-8");
+  if (requireReal && !realStorageEnabled()) {
+    throw new Error(getRealStorageConfigError() ?? "Real 0G Storage is required but unavailable");
+  }
+  if (!realStorageEnabled()) {
+    return uploadBytesToMockStorage(body);
+  }
+  try {
+    return await uploadBytesToRealStorage(body);
+  } catch (error) {
+    if (requireReal) {
+      throw error;
+    }
+    if (!allowMockFallback()) {
+      throw error;
+    }
+    console.warn(
+      "0G real storage upload failed for manifest. Falling back to mock storage:",
+      error instanceof Error ? error.message : error,
+    );
+    return uploadBytesToMockStorage(body);
+  }
+}
+
+export async function uploadKnowledge(
+  payload: Uint8Array,
+  options: UploadOptions = {},
+): Promise<UploadResult> {
+  const requireReal = options.requireReal ?? false;
+  if (requireReal && !realStorageEnabled()) {
+    throw new Error(getRealStorageConfigError() ?? "Real 0G Storage is required but unavailable");
+  }
+  if (!realStorageEnabled()) {
+    return uploadBytesToMockStorage(payload);
+  }
+  try {
+    return await uploadBytesToRealStorage(payload);
+  } catch (error) {
+    if (requireReal) {
+      throw error;
+    }
+    if (!allowMockFallback()) {
+      throw error;
+    }
+    console.warn(
+      "0G real storage upload failed for knowledge. Falling back to mock storage:",
+      error instanceof Error ? error.message : error,
+    );
+    return uploadBytesToMockStorage(payload);
+  }
+}
+
+export async function downloadText(
+  uri: string,
+  fallbackLocalPath?: string | null,
+): Promise<string> {
+  return downloadTextByRootHash(getRootHashFromUri(uri), fallbackLocalPath);
+}
+
+export async function downloadTextByRootHash(
+  rootHash: string,
+  fallbackLocalPath?: string | null,
+): Promise<string> {
+  const normalizedRootHash = getRootHashFromUri(rootHash);
+
+  if (!realStorageEnabled()) {
+    const filePath = path.join(MOCK_STORAGE_DIR, normalizedRootHash);
+    try {
+      const content = await fs.readFile(filePath);
+      return content.toString("utf-8");
+    } catch {
+      if (!fallbackLocalPath) {
+        return "";
+      }
+      const localContent = await fs.readFile(fallbackLocalPath);
+      return localContent.toString("utf-8");
+    }
+  }
+
+  const { indexer } = await getStorageClients();
+  await fs.mkdir(DOWNLOAD_DIR, { recursive: true });
+  // The 0G SDK refuses to overwrite an existing file ("Wrong path, provide a file
+  // path which does not exist"), so use a unique per-call temp name and delete
+  // it after read. Don't reuse a hash-keyed filename across calls.
+  const outputFile = path.join(
+    DOWNLOAD_DIR,
+    `${normalizedRootHash.replace(/[^a-zA-Z0-9_-]/g, "_")}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.txt`,
+  );
+
+  const downloadError = await indexer.download(normalizedRootHash, outputFile, true);
+  if (downloadError) {
+    if (fallbackLocalPath) {
+      const localContent = await fs.readFile(fallbackLocalPath);
+      return localContent.toString("utf-8");
+    }
+    throw downloadError;
+  }
+
+  const content = await fs.readFile(outputFile);
+  // Best-effort cleanup so the downloads dir doesn't grow unbounded.
+  fs.unlink(outputFile).catch(() => undefined);
+  return content.toString("utf-8");
+}
+
+export function storageMode(): "real" | "mock" {
+  return realStorageEnabled() ? "real" : "mock";
+}

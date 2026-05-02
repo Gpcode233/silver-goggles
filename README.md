@@ -204,9 +204,8 @@ http://localhost:3000
 - Requirement shaping and delivery coordination
 - Non-technical product contribution and execution support
 
-## Notes For Judges
+## Notes For Judges 😎
 
-- Ajently is a live working MVP, not a slide-only concept
 - The project demonstrates a real Interswitch-powered fiat top-up flow
 - Credits are only issued after server-side payment confirmation
 - The app includes both marketplace discovery and agent interaction workflows

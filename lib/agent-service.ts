@@ -7,6 +7,7 @@ import {
   isInterswitchSuccessCode,
   requeryInterswitchTransaction,
 } from "@/lib/interswitch";
+import { verifyTransaction as verifyPaystackTransaction } from "@/lib/paystack";
 import { AGENT_MODELS } from "@/lib/types";
 import type {
   AgentCardGradient,
@@ -1002,6 +1003,90 @@ export async function reconcileTopupOrder(params: {
     }
     return mapTopupOrder(updated);
   });
+}
+
+export async function confirmTopupOrderWithPaystack(topupId: number): Promise<{
+  order: TopupOrderRecord;
+  state: "completed" | "pending" | "failed";
+  gateway: {
+    code: string | null;
+    description: string | null;
+    paymentReference: string | null;
+    amountMinor: number | null;
+  };
+}> {
+  const order = await getTopupOrderById(topupId);
+  if (!order) {
+    throw new Error("Top-up order not found");
+  }
+
+  if (order.status === "completed") {
+    return {
+      order,
+      state: "completed",
+      gateway: {
+        code: "success",
+        description: "Already reconciled",
+        paymentReference: order.providerReference,
+        amountMinor: null,
+      },
+    };
+  }
+
+  const verified = await verifyPaystackTransaction(order.providerReference);
+
+  if (verified.status === "success") {
+    const expectedMinor = Math.round(order.amount * 100);
+    if (verified.amount !== expectedMinor) {
+      throw new Error(
+        `Paystack amount mismatch. Expected ${expectedMinor}, received ${verified.amount}.`,
+      );
+    }
+    const reconciled = await reconcileTopupOrder({
+      providerReference: order.providerReference,
+      status: "completed",
+      note: `Paystack ${verified.channel ?? "card"} payment confirmed (${verified.reference})`,
+    });
+    return {
+      order: reconciled,
+      state: "completed",
+      gateway: {
+        code: verified.status,
+        description: verified.channel,
+        paymentReference: verified.reference,
+        amountMinor: verified.amount,
+      },
+    };
+  }
+
+  if (verified.status === "failed") {
+    const reconciled = await reconcileTopupOrder({
+      providerReference: order.providerReference,
+      status: "failed",
+      note: `Paystack payment failed (${verified.reference})`,
+    });
+    return {
+      order: reconciled,
+      state: "failed",
+      gateway: {
+        code: verified.status,
+        description: verified.channel,
+        paymentReference: verified.reference,
+        amountMinor: verified.amount,
+      },
+    };
+  }
+
+  return {
+    order,
+    state: "pending",
+    gateway: {
+      code: verified.status,
+      description: verified.channel,
+      paymentReference: verified.reference,
+      amountMinor: verified.amount,
+    },
+  };
 }
 
 export async function confirmTopupOrderWithInterswitch(topupId: number): Promise<{

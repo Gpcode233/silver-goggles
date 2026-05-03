@@ -30,9 +30,9 @@ function ConfirmationCard({
   return (
     <main className="mx-auto max-w-2xl px-4 py-16">
       <div className="rounded-3xl border border-ink/15 bg-white/80 p-8 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink/60">Ajently x Interswitch</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink/60">Ajently · Payment</p>
         <h1 className="mt-3 text-3xl font-black">Payment confirmation</h1>
-        {loading ? <p className="mt-4 text-sm text-ink/70">Checking your payment with Interswitch...</p> : null}
+        {loading ? <p className="mt-4 text-sm text-ink/70">Verifying your payment with the provider…</p> : null}
         {!loading && resolvedPayload?.state === "completed" ? (
           <p className="mt-4 text-sm text-emerald-700">
             Payment confirmed. Your Ajently credits have been added.
@@ -40,7 +40,7 @@ function ConfirmationCard({
         ) : null}
         {!loading && resolvedPayload?.state === "pending" ? (
           <p className="mt-4 text-sm text-amber-700">
-            Interswitch still reports this payment as pending. You can retry confirmation from the credits page.
+            The payment provider still reports this transaction as pending. You can retry confirmation from the credits page.
           </p>
         ) : null}
         {!loading && resolvedPayload?.state === "failed" ? (
@@ -91,6 +91,7 @@ function ConfirmationCard({
 function CreditsConfirmContent() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get("orderId");
+  const provider = (searchParams.get("provider") ?? "interswitch").toLowerCase();
   const missingOrderId = !orderId;
   const [loading, setLoading] = useState(!missingOrderId);
   const [payload, setPayload] = useState<ConfirmResponse | null>(null);
@@ -104,7 +105,10 @@ function CreditsConfirmContent() {
 
     async function confirmPayment() {
       setLoading(true);
-      const response = await fetch(`/api/credits/${orderId}/confirm`, { method: "POST" });
+      const response = await fetch(
+        `/api/credits/${orderId}/confirm?provider=${encodeURIComponent(provider)}`,
+        { method: "POST" },
+      );
       const result = (await response.json()) as ConfirmResponse;
       if (cancelled) {
         return;
@@ -126,7 +130,7 @@ function CreditsConfirmContent() {
     return () => {
       cancelled = true;
     };
-  }, [missingOrderId, orderId]);
+  }, [missingOrderId, orderId, provider]);
 
   const resolvedPayload =
     missingOrderId && !payload

@@ -254,6 +254,26 @@ export function CreditsClient() {
     submitHostedCheckout(payload.checkout);
   }
 
+  async function purchasePackage(amount: number, currency: string) {
+    setSubmitting(true);
+    setError("");
+    const response = await fetch("/api/credits/paystack/init", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ amount, rail: "fiat", currency }),
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      checkout?: { authorizationUrl?: string };
+    };
+    if (!response.ok || !payload.checkout?.authorizationUrl) {
+      setError(payload.error ?? "Failed to start Paystack checkout");
+      setSubmitting(false);
+      return;
+    }
+    window.location.href = payload.checkout.authorizationUrl;
+  }
+
   async function createPaystackTopup() {
     setSubmitting(true);
     setError("");
@@ -718,8 +738,13 @@ export function CreditsClient() {
                 <p className="mt-2 text-[15px] leading-7 text-slate-500">
                   Perfect for individual developers testing small agents.
                 </p>
-                <button type="button" className="mt-5 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-800">
-                  Select Plan
+                <button
+                  type="button"
+                  onClick={() => void purchasePackage(49, "USD")}
+                  disabled={submitting}
+                  className="mt-5 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {submitting ? "Redirecting…" : "Select Plan"}
                 </button>
               </article>
 
@@ -739,8 +764,13 @@ export function CreditsClient() {
                 <p className="mt-2 text-[15px] leading-7 text-slate-400">
                   Scaling intelligence for high-frequency automation workflows.
                 </p>
-                <button type="button" className="mt-5 flex w-full items-center justify-center rounded-xl bg-cyan-500 px-4 py-3 text-sm font-bold text-slate-950">
-                  Purchase Now
+                <button
+                  type="button"
+                  onClick={() => void purchasePackage(249, "USD")}
+                  disabled={submitting}
+                  className="mt-5 flex w-full items-center justify-center rounded-xl bg-cyan-500 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {submitting ? "Redirecting…" : "Purchase Now"}
                 </button>
               </article>
 

@@ -1,163 +1,170 @@
 # Ajently
-
-Ajently is a marketplace for AI agents where users can discover specialized agents, try them instantly, customize them, and pay for premium usage with fiat credits powered by Interswitch.
-
-Live demo: [https://silver-goggles-gold.vercel.app/](https://silver-goggles-gold.vercel.app/)
-
+ 
+Ajently is an AI agent marketplace where users can discover specialized agents, try them instantly, customize them to their needs, and pay for premium usage with fiat credits powered by Interswitch.
+ 
+**Live demo:** [https://silver-goggles-gold.vercel.app/](https://silver-goggles-gold.vercel.app/)
+ 
+---
+ 
 ## Problem
-
-Many users want the value of AI agents without having to prompt-engineer from scratch, compare random tools across the internet, or manage complex workflows themselves. At the same time, creators need a simple way to package and monetize highly focused agents.
-
-Ajently solves this by giving users:
-
-- a clean marketplace to discover curated AI agents
-- instant agent chat and testing
-- a way to customize agents to their preferences
-- a simple fiat credit top-up flow for paid usage
-
+ 
+AI is fragmented. You use one tool to write, another to review code, another to tutor you, another to generate content — and none of them talk to each other. Most people want the power of AI agents without the friction of jumping between a dozen different platforms, prompt-engineering from scratch each time, or managing complex workflows on their own.
+ 
+At the same time, creators who build highly focused, specialized agents have no clean way to package or monetize their work.
+ 
+Ajently fixes both sides of this equation by bringing different models and agents together in one place — so users can go from task to task without switching platforms, and creators can build, list, and earn from their agents.
+ 
+---
+ 
 ## Solution
-
-Ajently turns AI agents into a usable marketplace product.
-
-Users can:
-
-- explore a curated agent marketplace
-- open an agent details page
-- chat with an agent in a focused workspace
-- customize an agent’s identity, prompt, and attached knowledge
-- create new agents through a form flow or a visual workflow builder
-- top up credits with Interswitch checkout
-
-## Creator Monetization
-
-Ajently currently rewards creators with platform credits when their paid agents are used. This validates the monetization loop inside the marketplace today, while fiat creator payouts are planned as a future upgrade.
-
-## Interswitch APIs Used
-
-This project uses Interswitch for fiat credit top-up.
-
+ 
+Ajently turns AI agents into a usable, unified marketplace product.
+ 
+**For users:**
+- Explore a curated marketplace of specialized AI agents across different use cases
+- Open an agent's detail page and understand exactly what it does
+- Chat with an agent in a focused, distraction-free workspace
+- Customize an agent's identity, system prompt, and attached knowledge
+- Create new agents through a guided form flow or a visual workflow builder
+- Top up credits with fiat currency via Interswitch checkout
+**For creators:**
+- Package focused agents and list them on the marketplace
+- Earn platform credits when paid agents are used (fiat payouts planned as a future upgrade)
+---
+ 
+## Interswitch Integration
+ 
+Ajently uses Interswitch to power fiat credit top-ups — the core monetization layer of the marketplace.
+ 
 ### 1. Web Checkout API
-
-Ajently uses Interswitch Web Checkout so users can top up credits with fiat currency through a hosted payment experience.
-
-Use case in Ajently:
-
-- user selects an amount on the credits page
-- Ajently creates a pending top-up order
-- user is redirected to Interswitch hosted checkout
-- user pays with supported rails such as card
-
-### 2. Server-side Transaction Confirmation / Requery
-
-After redirect, Ajently confirms the payment on the server before credits are issued.
-
-Use case in Ajently:
-
-- Interswitch redirects the user back to `/credits/confirm`
-- Ajently calls the confirmation endpoint server-side
-- credits are only added after a successful verified transaction response
-
-This prevents issuing credits based only on a browser redirect.
-
+ 
+Users select a credit amount on the billing page. Ajently creates a pending top-up order and redirects the user to Interswitch's hosted checkout to complete payment via card or other supported rails.
+ 
+### 2. Server-side Transaction Confirmation (Requery)
+ 
+After the user is redirected back, Ajently confirms the payment server-side before issuing any credits. This prevents credits from being added based on a browser redirect alone — only a verified transaction response from Interswitch triggers a credit update.
+ 
+**Confirmation flow:**
+- Interswitch redirects user to `/credits/confirm`
+- Ajently calls the requery endpoint server-side
+- Credits are issued only after a successful verified response
+---
+ 
 ## Core Features
-
-- Authentication with Google, email/password, or wallet
-- Onboarding flow for name, email, and profile setup
-- Explore page with search, filters, sorting, and pagination
-- Three specialized launch agents:
+ 
+- **Authentication** — Google OAuth, email/password, and wallet login
+- **Onboarding** — Name, email, and profile setup flow
+- **Explore page** — Search, filters, sorting, and pagination across the agent marketplace
+- **Three specialized launch agents:**
   - Viral Hook Architect
   - Pull Request Reviewer
   - Socratic Tutor
-- Agent detail pages with pricing, features, reviews, related agents, and customization entry points
-- Chat interface with markdown rendering, copy/share/feedback actions, and file attachment support
-- Agent customization page for prompt, identity, and knowledge tuning
-- Form-based agent creation
-- Visual workflow builder for agent creation
-- Credits and billing dashboard
-- Fiat top-up powered by Interswitch
-
+- **Agent detail pages** — Pricing, features, reviews, related agents, and customization entry points
+- **Chat interface** — Markdown rendering, copy/share/feedback actions, and file attachment support
+- **Agent customization** — Prompt tuning, identity editing, and knowledge attachment
+- **Agent creation** — Form-based flow and a visual workflow builder
+- **Credits and billing dashboard** — Balance overview and top-up history
+- **Fiat top-up** — Powered by Interswitch Web Checkout with server-side confirmation
+---
+ 
 ## Demo Flow
-
+ 
 Recommended demo order:
-
+ 
 1. Open the live app
 2. Sign in
 3. Explore the marketplace
 4. Open `Viral Hook Architect`
-5. Try the agent in chat
+5. Try the agent in the chat workspace
 6. Show markdown-style agent output
 7. Open the credits page
 8. Start an Interswitch top-up flow
 9. Return to the marketplace and show that premium usage is tied to credits
 10. Show agent creation or customization
-
-## Screens To Show In Your Recording
-
+---
+ 
+## Screens to Show in Your Recording
+ 
 - Login page
 - Explore marketplace
 - Agent details page
 - Chat page
 - Credits page with Interswitch option
 - Agent customization page
-- Optional: visual builder
-
+- Optional: visual workflow builder
+---
+ 
 ## Tech Stack
-
-- Next.js 16 App Router
-- TypeScript
-- Tailwind CSS
-- SQLite via `sql.js`
-- Auth.js for Google auth
-- RainbowKit / wagmi for wallet connectivity
-- OpenRouter for model access
-- Interswitch Web Checkout for fiat payments
-
+ 
+| Layer | Technology |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| Database | SQLite via `sql.js` |
+| Auth | Auth.js (Google OAuth + email/password) |
+| Wallet | RainbowKit / wagmi |
+| AI Models | OpenRouter |
+| Payments | Interswitch Web Checkout |
+ 
+---
+ 
 ## Project Structure
-
-- `app/` application routes and API routes
-- `components/` reusable UI components
-- `lib/` core business logic, database, auth, payments, and agent services
-- `data/` local SQLite database and knowledge files
-
+ 
+```
+app/          → Application routes and API routes
+components/   → Reusable UI components
+lib/          → Core business logic, database, auth, payments, and agent services
+data/         → Local SQLite database and agent knowledge files
+```
+ 
+---
+ 
 ## Main Routes
-
-- `/` Explore marketplace
-- `/auth` Login / sign up
-- `/onboarding` Profile setup
-- `/agents/[id]` Agent details
-- `/agents/[id]/chat` Chat with agent
-- `/agents/[id]/customize` Customize agent
-- `/create` Choose agent creation flow
-- `/create/form` Form-based agent creation
-- `/create/builder` Visual workflow builder
-- `/credits` Credits and billing
-- `/profile` Workspace / profile
-
+ 
+| Route | Description |
+|---|---|
+| `/` | Explore marketplace |
+| `/auth` | Login / sign up |
+| `/onboarding` | Profile setup |
+| `/agents/[id]` | Agent details |
+| `/agents/[id]/chat` | Chat with agent |
+| `/agents/[id]/customize` | Customize agent |
+| `/create` | Choose agent creation flow |
+| `/create/form` | Form-based agent creation |
+| `/create/builder` | Visual workflow builder |
+| `/credits` | Credits and billing |
+| `/profile` | Workspace / profile |
+ 
+---
+ 
 ## Main API Routes
-
-- `POST /api/auth`
-- `POST /api/auth/google/complete`
-- `POST /api/auth/onboarding`
-- `GET /api/profile`
-- `GET /api/agents`
-- `POST /api/agents`
-- `POST /api/agents/[id]/run`
-- `POST /api/credits`
-- `POST /api/credits/[id]/confirm`
-- `POST /api/webhooks/payments`
-
+ 
+| Method | Route | Purpose |
+|---|---|---|
+| POST | `/api/auth` | Authentication |
+| POST | `/api/auth/google/complete` | Google OAuth completion |
+| POST | `/api/auth/onboarding` | Onboarding setup |
+| GET | `/api/profile` | Fetch user profile |
+| GET | `/api/agents` | List agents |
+| POST | `/api/agents` | Create agent |
+| POST | `/api/agents/[id]/run` | Run agent |
+| POST | `/api/credits` | Initiate top-up |
+| POST | `/api/credits/[id]/confirm` | Confirm payment server-side |
+| POST | `/api/webhooks/payments` | Interswitch payment webhook |
+ 
+---
+ 
 ## Local Setup
-
-1. Install dependencies
-
+ 
+**1. Install dependencies**
+ 
 ```bash
 npm install
 ```
-
-2. Add environment variables in `.env`
-
-Minimum examples:
-
+ 
+**2. Add environment variables in `.env`**
+ 
 ```env
 AUTH_SECRET=
 AUTH_GOOGLE_CLIENT_ID=
@@ -171,48 +178,48 @@ INTERSWITCH_PAY_ITEM_ID=
 INTERSWITCH_DEFAULT_CUSTOMER_EMAIL=
 INTERSWITCH_WEBHOOK_SECRET=
 ```
-
-3. Run the app
-
+ 
+**3. Run the development server**
+ 
 ```bash
 npm run dev
 ```
-
-4. Open:
-
-```text
+ 
+**4. Open in your browser**
+ 
+```
 http://localhost:3000
 ```
-
-## Team Contributions
-
-### Godspower OjinI
-
-- Product engineering
-- Frontend implementation
+ 
+---
+ 
+## Team
+ 
+### Godspower Ojini — Product Engineer
+- Full product engineering and technical delivery
+- Frontend implementation (marketplace, chat, customization, builder)
 - Backend and API integration
-- Interswitch payment integration
+- Interswitch payment integration (checkout + server-side confirmation)
 - Authentication and onboarding flow
-- Agent marketplace, chat, customization, and builder implementation
-- Deployment and technical delivery
-
-### Ifeoma Joy Okorie
-
-- Product management
+- Deployment
+### Ifeoma Joy Okorie — Product Manager
 - Product planning and feature direction
 - User flow definition
 - Requirement shaping and delivery coordination
 - Non-technical product contribution and execution support
-
-## Notes For Judges 😎
-
-- The project demonstrates a real Interswitch-powered fiat top-up flow
-- Credits are only issued after server-side payment confirmation
-- The app includes both marketplace discovery and agent interaction workflows
-
+---
+ 
+## Notes for Judges 😎
+ 
+- Ajently addresses a real fragmentation problem in AI — users no longer need to jump between multiple tools and platforms for different AI tasks
+- The Interswitch integration powers a real fiat top-up flow with server-side payment confirmation before any credits are issued
+- The app includes both marketplace discovery and agent interaction workflows, demonstrating the full creator-to-user monetization loop
+---
+ 
 ## Submission Checklist
-
-- Public GitHub repository
-- Live accessible demo link
-- README with team contributions
-- Working MVP deployed and demo-ready
+ 
+- [x] Public GitHub repository
+- [x] Live accessible demo link
+- [x] README with team contributions
+- [x] Walkthrough Video
+- [x] Working MVP deployed and demo-ready

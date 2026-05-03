@@ -254,6 +254,30 @@ export function CreditsClient() {
     submitHostedCheckout(payload.checkout);
   }
 
+  async function createPaystackTopup() {
+    setSubmitting(true);
+    setError("");
+    const response = await fetch("/api/credits/paystack/init", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount: Number(fiatAmount),
+        rail: "fiat",
+        currency: offchainCurrency,
+      }),
+    });
+    const payload = (await response.json()) as {
+      error?: string;
+      checkout?: { authorizationUrl?: string };
+    };
+    if (!response.ok || !payload.checkout?.authorizationUrl) {
+      setError(payload.error ?? "Failed to start Paystack checkout");
+      setSubmitting(false);
+      return;
+    }
+    window.location.href = payload.checkout.authorizationUrl;
+  }
+
   async function addFundsFromWallet() {
     const parsedAmount = Number(nativeAmount);
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
@@ -512,15 +536,31 @@ export function CreditsClient() {
                     {fundingOnchain ? `Confirming ${nativeAmount} ${nativeSymbol}` : `Add ${nativeAmount} ${nativeSymbol}`}
                   </button>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={createOffchainTopup}
-                    disabled={submitting || !state?.paymentProvider?.configured}
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-6 py-5 text-[18px] font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <WalletCards className="h-5 w-5" />
-                    {submitting ? "Redirecting to Interswitch..." : `Pay ${Number(fiatAmount || 0).toLocaleString()} ${offchainCurrency}`}
-                  </button>
+                  <div className="space-y-3">
+                    <button
+                      type="button"
+                      onClick={createPaystackTopup}
+                      disabled={submitting}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-black px-6 py-5 text-[18px] font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <WalletCards className="h-5 w-5" />
+                      {submitting
+                        ? "Redirecting…"
+                        : `Pay with card · ${Number(fiatAmount || 0).toLocaleString()} ${offchainCurrency}`}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={createOffchainTopup}
+                      disabled={submitting || !state?.paymentProvider?.configured}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-6 py-4 text-[16px] font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <WalletCards className="h-5 w-5" />
+                      Pay with Interswitch (Nigeria)
+                    </button>
+                    <p className="text-center text-[12px] text-slate-500">
+                      Card works globally via Paystack. Interswitch is optimized for Nigerian local payments.
+                    </p>
+                  </div>
                 )}
 
                 {error ? <p className="text-sm font-semibold text-red-600">{error}</p> : null}

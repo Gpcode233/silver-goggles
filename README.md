@@ -1,6 +1,6 @@
 # Ajently
  
-Ajently is an AI agent marketplace where users can discover specialized agents, try them instantly, customize them to their needs, and pay for premium usage with fiat credits powered by Interswitch.
+Ajently is an AI agent marketplace where users can discover specialized agents, try them instantly, customize them to their needs, and pay for premium usage with fiat or crypto.
  
 **Live demo:** [https://silver-goggles-gold.vercel.app/](https://silver-goggles-gold.vercel.app/)
  
@@ -32,9 +32,9 @@ Ajently turns AI agents into a usable, unified marketplace product.
 - Earn platform credits when paid agents are used (fiat payouts planned as a future upgrade)
 ---
  
-## Interswitch Integration
+## Paystack x Interswitch Integration
  
-Ajently uses Interswitch to power fiat credit top-ups — the core monetization layer of the marketplace.
+Ajently uses Paystack and Interswitch to power fiat credit top-ups, the core monetization layer of the marketplace.
  
 ### 1. Web Checkout API
  
@@ -69,16 +69,14 @@ After the user is redirected back, Ajently confirms the payment server-side befo
  
 ## Demo Flow
  
-Recommended demo order:
- 
-1. Open the live app
+1. Open the app
 2. Sign in
 3. Explore the marketplace
-4. Open `Viral Hook Architect`
+4. Open an agent, eg, `Viral Hook Architect`
 5. Try the agent in the chat workspace
 6. Show markdown-style agent output
 7. Open the credits page
-8. Start an Interswitch top-up flow
+8. Start a top-up flow either with your onchain balance or Paystack or Interswitch.
 9. Return to the marketplace and show that premium usage is tied to credits
 10. Show agent creation or customization
 ---
@@ -212,7 +210,7 @@ http://localhost:3000
 ## Notes for Judges 😎
  
 - Ajently addresses a real fragmentation problem in AI — users no longer need to jump between multiple tools and platforms for different AI tasks
-- The Interswitch integration powers a real fiat top-up flow with server-side payment confirmation before any credits are issued
+- The Paystack and Interswitch integration powers a real fiat top-up flow with server-side payment confirmation before any credits are issued
 - The app includes both marketplace discovery and agent interaction workflows, demonstrating the full creator-to-user monetization loop
 ---
  

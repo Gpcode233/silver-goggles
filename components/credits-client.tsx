@@ -193,7 +193,7 @@ export function CreditsClient() {
       .map((topup) => ({
         id: `topup-${topup.id}`,
         dateLabel: formatLedgerDate(topup.createdAt),
-        typeLabel: topup.rail === "fiat" ? "Interswitch Top-up" : "Onchain Top-up",
+        typeLabel: topup.rail === "fiat" ? "Fiat Top-up" : "Onchain Top-up",
         amountLabel: `+${topup.amount.toFixed(2)} ${topup.currency}`,
         statusLabel: "PENDING",
         statusTone: "pending" as const,
@@ -435,7 +435,7 @@ export function CreditsClient() {
                     rail === "fiat" ? "bg-black text-white" : "text-slate-500"
                   }`}
                 >
-                  Interswitch
+                  Fiat
                 </button>
               </div>
             </div>
@@ -546,7 +546,7 @@ export function CreditsClient() {
                       <WalletCards className="h-5 w-5" />
                       {submitting
                         ? "Redirecting…"
-                        : `Pay with card · ${Number(fiatAmount || 0).toLocaleString()} ${offchainCurrency}`}
+                        : `Pay with Paystack(Global) · ${Number(fiatAmount || 0).toLocaleString()} ${offchainCurrency}`}
                     </button>
                     <button
                       type="button"
@@ -566,7 +566,7 @@ export function CreditsClient() {
                 {error ? <p className="text-sm font-semibold text-red-600">{error}</p> : null}
               </div>
 
-              <aside className="rounded-[24px] border border-slate-200 bg-slate-50 p-6">
+              {/* <aside className="rounded-[24px] border border-slate-200 bg-slate-50 p-6">
                 <p className="flex items-center gap-2 text-[20px] font-bold text-slate-900">
                   <Info className="h-5 w-5 text-sky-700" />
                   How it works
@@ -628,7 +628,7 @@ export function CreditsClient() {
                     </div>
                   ) : null}
                 </div>
-              </aside>
+              </aside> */}
             </div>
           </section>
 
